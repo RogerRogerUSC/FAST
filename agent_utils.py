@@ -132,7 +132,7 @@ class Server:
         self.criterion = criterion
 
         self.device = device
-    
+
     def avg_clients(self, clients: list[Agent]):
         self.flatten_params.zero_()
         for client in clients:
@@ -152,12 +152,14 @@ class Server:
             val_loss.update(self.criterion(outputs, targets).item())
 
         return val_loss.avg, val_accuracy.avg
-    
+
     # Determine the sampling method by q
-    def determine_sampling(self, q, sampling_type): 
-        if "_" in sampling_type: 
+    def determine_sampling(self, q, sampling_type):
+        if "_" in sampling_type:
             sampling_methods = sampling_type.split("_")
-            if random.random() < q: return "uniform"
-            else: return sampling_methods[1]
-        else: return sampling_type
-  
+            if random.random() < q:
+                return "uniform"
+            else:
+                return sampling_methods[1]
+        else:
+            return sampling_type

@@ -7,26 +7,54 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
+from torch.utils.tensorboard import SummaryWriter
 
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from agent_utils import Agent, Server
 from tqdm import tqdm
-from data_dist import GammaDataSampler
 from client_sampling import client_sampling
 from log import log
 
 parser = argparse.ArgumentParser(description="PyTorch MNIST trainning")
-parser.add_argument("--batch-size", type=int, default=64, metavar="N", help="input batch size for training (default: 64)")
-parser.add_argument("--test-batch-size", type=int, default=1000, metavar="N", help="input batch size for testing (default: 1000)")
-parser.add_argument("--epoch", type=int, default=10, metavar="N", help="number of epochs to train (default: 10)")
-parser.add_argument("--lr", type=float, default=0.001, metavar="LR", help="learning rate (default: 0.001)",)
-parser.add_argument("--no-cuda", action="store_true", default=False, help="disables CUDA training")
+parser.add_argument(
+    "--batch-size",
+    type=int,
+    default=64,
+    metavar="N",
+    help="input batch size for training (default: 64)",
+)
+parser.add_argument(
+    "--test-batch-size",
+    type=int,
+    default=1000,
+    metavar="N",
+    help="input batch size for testing (default: 1000)",
+)
+parser.add_argument(
+    "--epoch",
+    type=int,
+    default=10,
+    metavar="N",
+    help="number of epochs to train (default: 10)",
+)
+parser.add_argument(
+    "--lr",
+    type=float,
+    default=0.001,
+    metavar="LR",
+    help="learning rate (default: 0.001)",
+)
+parser.add_argument(
+    "--no-cuda", action="store_true", default=False, help="disables CUDA training"
+)
 parser.add_argument("--seed", type=int, default=42, help="random seed")
 parser.add_argument("--sampling_type", type=str, default="uniform", help="")
 parser.add_argument("--local_update", type=int, default=10, help="Local iterations")
-parser.add_argument("--client_num", type=int, default=20, help="Total number of clients")
-parser.add_argument("--round", type=int, default=30, help="Round number")
+parser.add_argument(
+    "--client_num", type=int, default=20, help="Total number of clients"
+)
+parser.add_argument("--round", type=int, default=100, help="Round number")
 parser.add_argument("--q", type=float, default=0.5, help="Probability q")
 
 
@@ -85,11 +113,11 @@ for idx in range(args.client_num):
         model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-    # Sample data as uniform data distribution 
+    # Sample data as uniform data distribution
     sampler = torch.utils.data.DistributedSampler(
         train_dataset, num_replicas=args.client_num, rank=idx, shuffle=True
-    ) 
-    #sampler = GammaDataSampler(train_dataset, args.client_num, 2.0, 1.0)
+    )
+    # sampler = GammaDataSampler(train_dataset, args.client_num, 2.0, 1.0)
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, sampler=sampler, **kwargs
     )
@@ -128,20 +156,37 @@ def local_update_selected_clients(clients: list[Agent], server, local_update):
 #     eval_loss, eval_acc = server.eval(test_loader)
 #     print(f"Evaluation(epoch {epoch+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
 
-if os.path.exists("training.log"): os.remove("training.log")
-for round in range(args.round):
-    with tqdm(total=len(clients[0].train_loader), desc=f"Training(round {round+1})") as t:
-        for _ in range(math.ceil(len(train_loader) / args.local_update)):
-            sampled_clients = client_sampling(server.determine_sampling(args.q, args.sampling_type), clients)
-            [client.pull_model_from_server(server) for client in sampled_clients]
-            train_loss, train_acc = local_update_selected_clients(
-                clients=sampled_clients, server=server, local_update=args.local_update
-            )
-            server.avg_clients(sampled_clients)
-            t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
-            t.update(args.local_update)
-    eval_loss, eval_acc = server.eval(test_loader)
-    print(f"Evaluation(round {round+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
-    # eval_acc_list = []
-    # eval_acc_list.append(eval_acc)
-    log(round, eval_acc)
+if os.path.exists("training.log"):
+    os.remove("training.log")
+
+writer = SummaryWriter(os.path.join("output", "mnist", f"sampling_{args.sampling_type}"))
+
+with tqdm(
+    total=args.round, desc=f"Training:"
+) as t:
+    for round in range(args.round):
+        sampled_clients = client_sampling(
+            server.determine_sampling(args.q, args.sampling_type), clients
+        )
+        [client.pull_model_from_server(server) for client in sampled_clients]
+        train_loss, train_acc = local_update_selected_clients(
+            clients=sampled_clients, server=server, local_update=args.local_update
+        )
+        server.avg_clients(sampled_clients)
+        writer.add_scalar('Loss/train', train_loss, round)
+        writer.add_scalar('Accuracy/train', train_acc, round)
+        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
+        t.update(1)
+        if round % 10 == 0: 
+            eval_loss, eval_acc = server.eval(test_loader)
+            writer.add_scalar('Loss/test', eval_loss, round)
+            writer.add_scalar('Accuracy/test', eval_acc, round)
+            print(f"Evaluation(round {round+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
+            log(round, eval_acc)
+
+eval_loss, eval_acc = server.eval(test_loader)
+writer.add_scalar('Loss/test', eval_loss, round)
+writer.add_scalar('Accuracy/test', eval_acc, round)
+print(f"Evaluation(final round): {eval_loss=:.4f} {eval_acc=:.3f}")
+writer.close()
+

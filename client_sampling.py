@@ -45,7 +45,7 @@ def gamma_client_sampling(clients):
 
 
 def beta_client_sampling(clients):
-    alpha = 5
+    alpha = 5 
     beta = 1
     weights = torch.rand(len(clients))
     sampled_clients = [
