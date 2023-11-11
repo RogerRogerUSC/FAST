@@ -1,6 +1,7 @@
 import argparse
 import math
 import os
+from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -15,6 +16,7 @@ from agent_utils import Agent, Server
 from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
+from data_dist import DirichletSampler
 
 parser = argparse.ArgumentParser(description="PyTorch MNIST trainning")
 parser.add_argument(
@@ -41,20 +43,20 @@ parser.add_argument(
 parser.add_argument(
     "--lr",
     type=float,
-    default=0.001,
+    default=0.01,
     metavar="LR",
-    help="learning rate (default: 0.001)",
+    help="learning rate (default: 0.01)"
 )
 parser.add_argument(
     "--no-cuda", action="store_true", default=False, help="disables CUDA training"
 )
 parser.add_argument("--seed", type=int, default=42, help="random seed")
-parser.add_argument("--sampling_type", type=str, default="uniform", help="")
+parser.add_argument("--sampling_type", type=str, default="weibull", help="")
 parser.add_argument("--local_update", type=int, default=10, help="Local iterations")
 parser.add_argument(
-    "--client_num", type=int, default=20, help="Total number of clients"
+    "--num_clients", type=int, default=20, help="Total number of clients"
 )
-parser.add_argument("--round", type=int, default=100, help="Round number")
+parser.add_argument("--rounds", type=int, default=500, help="The number of rounds")
 parser.add_argument("--q", type=float, default=0.5, help="Probability q")
 
 
@@ -106,18 +108,22 @@ class Net(nn.Module):
 
 # Create clients and server
 clients = []
-for idx in range(args.client_num):
+for idx in range(args.num_clients):
     model = Net()
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(
         model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-    # Sample data as uniform data distribution
-    sampler = torch.utils.data.DistributedSampler(
-        train_dataset, num_replicas=args.client_num, rank=idx, shuffle=True
+    # Sample data with uniform distribution
+    # sampler = torch.utils.data.DistributedSampler(
+    #     train_dataset, num_replicas=args.num_clients, rank=idx, shuffle=True
+    # )
+
+    # Sample data with Dirichlet distribution
+    sampler = DirichletSampler(
+        dataset=train_dataset, size=args.num_clients, rank=idx, alpha=0.1
     )
-    # sampler = GammaDataSampler(train_dataset, args.client_num, 2.0, 1.0)
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, sampler=sampler, **kwargs
     )
@@ -141,30 +147,17 @@ def local_update_selected_clients(clients: list[Agent], server, local_update):
     return train_loss_avg, train_acc_avg
 
 
-# for epoch in range(args.epoch):
-#     with tqdm(total=len(clients[0].train_loader), desc=f"Training(epoch {epoch+1})") as t:
-#         for _ in range(math.ceil(len(train_loader) / args.local_update)):
-#             sampled_clients = client_sampling(args.sampling_type, clients)
-#             [client.pull_model_from_server(server) for client in sampled_clients]
-#             train_loss, train_acc = local_update_selected_clients(
-#                 clients=sampled_clients, server=server, local_update=args.local_update
-#             )
-#             server.avg_clients(sampled_clients)
+writer = SummaryWriter(
+    os.path.join(
+        "output",
+        "mnist",
+        f"sampling_{args.sampling_type}",
+        datetime.now().strftime("%m_%d-%H-%M-%S"),
+    )
+)
 
-#             t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
-#             t.update(args.local_update)
-#     eval_loss, eval_acc = server.eval(test_loader)
-#     print(f"Evaluation(epoch {epoch+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
-
-if os.path.exists("training.log"):
-    os.remove("training.log")
-
-writer = SummaryWriter(os.path.join("output", "mnist", f"sampling_{args.sampling_type}"))
-
-with tqdm(
-    total=args.round, desc=f"Training:"
-) as t:
-    for round in range(args.round):
+with tqdm(total=args.rounds, desc=f"Training:") as t:
+    for round in range(args.rounds):
         sampled_clients = client_sampling(
             server.determine_sampling(args.q, args.sampling_type), clients
         )
@@ -173,20 +166,19 @@ with tqdm(
             clients=sampled_clients, server=server, local_update=args.local_update
         )
         server.avg_clients(sampled_clients)
-        writer.add_scalar('Loss/train', train_loss, round)
-        writer.add_scalar('Accuracy/train', train_acc, round)
+        writer.add_scalar("Loss/train", train_loss, round)
+        writer.add_scalar("Accuracy/train", train_acc, round)
         t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
         t.update(1)
-        if round % 10 == 0: 
+        if round % 10 == 0:
             eval_loss, eval_acc = server.eval(test_loader)
-            writer.add_scalar('Loss/test', eval_loss, round)
-            writer.add_scalar('Accuracy/test', eval_acc, round)
+            writer.add_scalar("Loss/test", eval_loss, round)
+            writer.add_scalar("Accuracy/test", eval_acc, round)
             print(f"Evaluation(round {round+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
             log(round, eval_acc)
 
 eval_loss, eval_acc = server.eval(test_loader)
-writer.add_scalar('Loss/test', eval_loss, round)
-writer.add_scalar('Accuracy/test', eval_acc, round)
+writer.add_scalar("Loss/test", eval_loss, round)
+writer.add_scalar("Accuracy/test", eval_acc, round)
 print(f"Evaluation(final round): {eval_loss=:.4f} {eval_acc=:.3f}")
 writer.close()
-

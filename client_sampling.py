@@ -26,8 +26,8 @@ def uniform_client_sampling(clients):
 
 def gamma_client_sampling(clients):
     # Define parameters for the Gamma distribution
-    gamma_shape = 2.0
-    gamma_scale = 1.0
+    gamma_shape = 1.0
+    gamma_scale = 2.0
     # Generate weights using PyTorch's Gamma function
     weights = torch.tensor(
         np.random.gamma(shape=gamma_shape, scale=gamma_scale, size=len(clients))
