@@ -41,23 +41,22 @@ parser.add_argument(
     help="number of epochs to train (default: 10)",
 )
 parser.add_argument(
-    "--lr",
-    type=float,
-    default=0.01,
-    metavar="LR",
-    help="learning rate (default: 0.01)"
+    "--lr", type=float, default=0.01, metavar="LR", help="learning rate (default: 0.01)"
 )
 parser.add_argument(
     "--no-cuda", action="store_true", default=False, help="disables CUDA training"
 )
 parser.add_argument("--seed", type=int, default=42, help="random seed")
-parser.add_argument("--sampling_type", type=str, default="uniform_beta", help="")
+parser.add_argument("--sampling_type", type=str, default="weibull", help="")
 parser.add_argument("--local_update", type=int, default=10, help="Local iterations")
 parser.add_argument(
     "--num_clients", type=int, default=100, help="Total number of clients"
 )
 parser.add_argument("--rounds", type=int, default=500, help="The number of rounds")
 parser.add_argument("--q", type=float, default=0.5, help="Probability q")
+parser.add_argument(
+    "--alpha", type=float, default=0.1, help="Dirichlet Distribution parameter"
+)
 
 
 args = parser.parse_args()
@@ -122,7 +121,7 @@ for idx in range(args.num_clients):
 
     # Sample data with Dirichlet distribution
     sampler = DirichletSampler(
-        dataset=train_dataset, size=args.num_clients, rank=idx, alpha=0.1
+        dataset=train_dataset, size=args.num_clients, rank=idx, alpha=args.alpha
     )
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, sampler=sampler, **kwargs
@@ -151,13 +150,13 @@ writer = SummaryWriter(
     os.path.join(
         "output",
         "mnist",
-        f"sampling_{args.sampling_type}_{args.q}",
-        datetime.now().strftime("%m_%d-%H-%M-%S"),
+        f"{args.sampling_type}+q_{args.q}+alpha_{args.alpha}+num_clients_{args.num_clients}",
+        # datetime.now().strftime("%m_%d-%H-%M-%S"),
     )
 )
 
 with tqdm(total=args.rounds, desc=f"Training:") as t:
-    for round in range(0, args.rounds+1):
+    for round in range(0, args.rounds):
         sampled_clients = client_sampling(
             server.determine_sampling(args.q, args.sampling_type), clients
         )
@@ -175,7 +174,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             writer.add_scalar("Loss/test", eval_loss, round)
             writer.add_scalar("Accuracy/test", eval_acc, round)
             print(f"Evaluation(round {round+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
-            log(round+1, eval_acc)
+            log(round, eval_acc)
 
 eval_loss, eval_acc = server.eval(test_loader)
 writer.add_scalar("Loss/test", eval_loss, round)

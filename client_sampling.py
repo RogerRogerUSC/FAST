@@ -26,7 +26,7 @@ def uniform_client_sampling(clients):
 
 def gamma_client_sampling(clients):
     # Define parameters for the Gamma distribution
-    gamma_shape = 1.0
+    gamma_shape = 3.0
     gamma_scale = 2.0
     # Generate weights using PyTorch's Gamma function
     weights = torch.tensor(
@@ -89,9 +89,9 @@ def bernoulli_client_sampling(clients):
 
 def markovian_client_sampling(clients):
     transition_matrix = torch.tensor(
-        [[0.2, 0.3, 0.5], [0.4, 0.2, 0.4], [0.1, 0.7, 0.2]]
+        [[ 0.3, 0.7], [0.6, 0.4]]
     )
-    initial_distribution = torch.tensor([0.3, 0.4, 0.3])
+    initial_distribution = torch.tensor([0.1, 0.9])
     current_state = torch.distributions.Categorical(initial_distribution).sample()
     sampled_clients = []
     for _ in range(int(len(clients) * 0.1)):
