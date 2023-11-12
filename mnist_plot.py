@@ -29,21 +29,21 @@ def parse_filename(filename: str) -> Params:
     return params
 
 
-fig, ax = plt.subplots(figsize=(12, 8))
+fig, ax = plt.subplots(figsize=(6, 5))
+plt.rc("font", size=14)
 markers = "os*xdXDHhPp12348<>"
 k = 0
-
 filenames = os.listdir("results/")
 
-for filename in filenames: 
+for filename in filenames:
     params = parse_filename(filename)
     # Select sampling_type to plot
-    if "cyclic" in params.sampling_type or params.sampling_type=="uniform": 
+    if "cyclic" in params.sampling_type or params.sampling_type == "uniform":
         df = pd.read_csv("results/" + filename)
         if "_" in params.sampling_type:
             df.plot(
-            x="Step",
-            y="Value",
+                x="Step",
+                y="Value",
                 label=params.sampling_type + ",q=" + str(params.q),
                 ax=ax,
                 marker=markers[k],
@@ -64,9 +64,10 @@ for filename in filenames:
             )
         k += 1
 
-plt.xlabel("Communication Round")
-plt.ylabel("Accuracy")
-plt.title("dataset=MNIST, alpha=0.1, num_clients=100, learning_rate=0.01, rounds=500")
+plt.xlabel("Communication Round", fontsize=14)
+plt.ylabel("Accuracy", fontsize=14)
+plt.title("dataset=MNIST, alpha=0.1, num_clients=100")
 plt.grid("on")
+plt.tight_layout()
 plt.savefig(os.path.join("figures", "cyclic_multi_q.pdf"))
 plt.show()

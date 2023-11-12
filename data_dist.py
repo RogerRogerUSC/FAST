@@ -8,7 +8,10 @@ from torch.utils.data import Sampler
 class DirichletSampler(Sampler):
     def __init__(self, dataset, *, size, rank, alpha, random_seed=42, shuffle=True):
         self.dataset = dataset
-        self.labels = set(dataset.targets.numpy())
+        if isinstance(dataset.targets, torch.Tensor):
+            self.labels = set(dataset.targets.numpy())
+        else:
+            self.labels = set(dataset.targets)
         if not list(sorted(self.labels)) == list(range(len(self.labels))):
             raise ValueError(
                 "Please re-map the labels of dataset into "
