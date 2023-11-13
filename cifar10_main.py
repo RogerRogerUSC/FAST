@@ -115,6 +115,7 @@ for idx in range(args.num_clients):
     #     optimizer, milestones=[150, 300], last_epoch=args.start_epoch - 1
     # )
 
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
     # Sample data with uniform distribution
     # sampler = torch.utils.data.DistributedSampler(
     #     train_dataset, num_replicas=args.num_clients, rank=idx, shuffle=True
