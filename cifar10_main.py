@@ -109,17 +109,6 @@ for idx in range(args.num_clients):
     optimizer = optim.SGD(
         model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4
     )
-    # optimizer = optim.Adam(model.parameters, lr=args.lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=500)
-    # scheduler = optim.lr_scheduler.MultiStepLR(
-    #     optimizer, milestones=[150, 300], last_epoch=args.start_epoch - 1
-    # )
-
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-    # Sample data with uniform distribution
-    # sampler = torch.utils.data.DistributedSampler(
-    #     train_dataset, num_replicas=args.num_clients, rank=idx, shuffle=True
-    # )
 
     # Sample data with Dirichlet distribution
     sampler = DirichletSampler(
@@ -132,8 +121,8 @@ for idx in range(args.num_clients):
         Agent(
             model=model,
             optimizer=optimizer,
-            criterion=criterion, 
-            train_loader=train_loader
+            criterion=criterion,
+            train_loader=train_loader,
         )
     )
 server = Server(model=ResNet18(), criterion=criterion)
@@ -159,24 +148,34 @@ writer = SummaryWriter(
 
 with tqdm(total=args.rounds, desc=f"Training:") as t:
     for round in range(0, args.rounds):
+        # Sample
         sampled_clients = client_sampling(
             server.determine_sampling(args.q, args.sampling_type), clients
         )
+        # Train
         [client.pull_model_from_server(server) for client in sampled_clients]
         train_loss, train_acc = local_update_selected_clients(
             clients=sampled_clients, server=server, local_update=args.local_update
-        ) 
-        server.avg_clients(sampled_clients) 
-        writer.add_scalar("Loss/train", train_loss, round) 
-        writer.add_scalar("Accuracy/train", train_acc, round) 
-        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc}) 
-        t.update(1) 
-        if round % 10 == 0: 
+        )
+        server.avg_clients(sampled_clients)
+        # Decay the learning rate every M rounds
+        if round % 250 == 249:
+            [client.decay_lr_in_optimizer(gamma=0.5) for client in clients]
+
+        # Evaluation and logging
+        writer.add_scalar("Loss/train", train_loss, round)
+        writer.add_scalar("Accuracy/train", train_acc, round)
+        if round % 10 == 0:
             eval_loss, eval_acc = server.eval(test_loader)
             writer.add_scalar("Loss/test", eval_loss, round)
             writer.add_scalar("Accuracy/test", eval_acc, round)
             print(f"Evaluation(round {round+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
             log(round, eval_acc)
+
+        # Tqdm update
+        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
+        t.update(1)
+
 
 eval_loss, eval_acc = server.eval(test_loader)
 writer.add_scalar("Loss/test", eval_loss, round)

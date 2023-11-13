@@ -89,6 +89,10 @@ class Agent:
     def pull_model_from_server(self, server):
         set_flatten_model_back(self.model, server.flatten_params)
 
+    def decay_lr_in_optimizer(self, gamma):
+        for g in self.optimizer.param_groups:
+            g['lr'] *= gamma
+
     def train_k_step(self, k):
         self.model.train()
 
