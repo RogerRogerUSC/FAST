@@ -30,7 +30,7 @@ def parse_filename(filename: str) -> Params:
 
 
 fig, ax = plt.subplots(figsize=(6, 5))
-plt.rc("font", size=14)
+plt.rc("font", size=12)
 markers = "os*xdXDHhPp12348<>"
 k = 0
 filenames = os.listdir("results/")
@@ -38,7 +38,7 @@ filenames = os.listdir("results/")
 for filename in filenames:
     params = parse_filename(filename)
     # Select sampling_type to plot
-    if "cyclic" in params.sampling_type or params.sampling_type == "uniform":
+    if "weibull" in params.sampling_type or params.sampling_type == "uniform":
         df = pd.read_csv("results/" + filename)
         if "_" in params.sampling_type:
             df.plot(
@@ -64,10 +64,10 @@ for filename in filenames:
             )
         k += 1
 
-plt.xlabel("Communication Round", fontsize=14)
-plt.ylabel("Accuracy", fontsize=14)
+plt.xlabel("Communication Round", fontsize=12)
+plt.ylabel("Accuracy", fontsize=12)
 plt.title("dataset=MNIST, alpha=0.1, num_clients=100")
 plt.grid("on")
 plt.tight_layout()
-plt.savefig(os.path.join("figures", "cyclic_multi_q.pdf"))
+plt.savefig(os.path.join("figures", "weibull_multi_q.pdf"))
 plt.show()
