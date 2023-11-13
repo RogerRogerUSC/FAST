@@ -127,12 +127,12 @@ server = Server(model=CNN_Cifar10(), criterion=criterion)
 
 
 def local_update_selected_clients(clients: list[Agent], server, local_update):
-    train_loss_avg, train_acc_avg = 0, 0
+    train_loss, train_acc = 0, 0
     for client in clients:
         train_loss, train_acc = client.train_k_step(k=local_update)
-        train_loss_avg += train_loss / len(clients)
-        train_acc_avg += train_acc / len(clients)
-    return train_loss_avg, train_acc_avg
+        train_loss_avg += train_loss
+        train_acc_avg += train_acc
+    return train_loss_avg / len(clients), train_acc_avg / len(clients)
 
 
 writer = SummaryWriter(
