@@ -17,7 +17,7 @@ from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
 from data_dist import DirichletSampler
-from models.resnet import ResNet18
+from models.cnn_cifar10 import CNN_Cifar10
 
 parser = argparse.ArgumentParser(description="PyTorch CIFAR10 trainning")
 parser.add_argument(
@@ -42,7 +42,7 @@ parser.add_argument(
     help="number of epochs to train (default: 10)",
 )
 parser.add_argument(
-    "--lr", type=float, default=0.01, metavar="LR", help="learning rate (default: 0.01)"
+    "--lr", type=float, default=0.0125, metavar="LR", help="learning rate (default: 0.01)"
 )
 parser.add_argument(
     "--no-cuda", action="store_true", default=False, help="disables CUDA training"
@@ -51,7 +51,7 @@ parser.add_argument("--seed", type=int, default=42, help="random seed")
 parser.add_argument("--sampling_type", type=str, default="uniform", help="")
 parser.add_argument("--local_update", type=int, default=10, help="Local iterations")
 parser.add_argument(
-    "--num_clients", type=int, default=100, help="Total number of clients"
+    "--num_clients", type=int, default=20, help="Total number of clients"
 )
 parser.add_argument("--rounds", type=int, default=500, help="The number of rounds")
 parser.add_argument("--q", type=float, default=0.5, help="Probability q")
@@ -71,8 +71,6 @@ current_loc = os.path.dirname(os.path.abspath(__file__))
 
 transform_train = transforms.Compose(
     [
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ]
@@ -104,7 +102,7 @@ test_loader = torch.utils.data.DataLoader(
 # Create clients and server
 clients = []
 for idx in range(args.num_clients):
-    model = ResNet18()
+    model = CNN_Cifar10()
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(
         model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4
@@ -125,7 +123,7 @@ for idx in range(args.num_clients):
             train_loader=train_loader,
         )
     )
-server = Server(model=ResNet18(), criterion=criterion)
+server = Server(model=CNN_Cifar10(), criterion=criterion)
 
 
 def local_update_selected_clients(clients: list[Agent], server, local_update):

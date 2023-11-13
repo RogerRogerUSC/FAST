@@ -17,6 +17,7 @@ from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
 from data_dist import DirichletSampler
+from models import cnn_cifar10
 
 parser = argparse.ArgumentParser(description="PyTorch MNIST trainning")
 parser.add_argument(
@@ -47,7 +48,7 @@ parser.add_argument(
     "--no-cuda", action="store_true", default=False, help="disables CUDA training"
 )
 parser.add_argument("--seed", type=int, default=42, help="random seed")
-parser.add_argument("--sampling_type", type=str, default="weibull", help="")
+parser.add_argument("--sampling_type", type=str, default="uniform_weibull", help="")
 parser.add_argument("--local_update", type=int, default=10, help="Local iterations")
 parser.add_argument(
     "--num_clients", type=int, default=100, help="Total number of clients"
