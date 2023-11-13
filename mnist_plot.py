@@ -5,7 +5,16 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
-from scipy.ndimage import gaussian_filter1d
+import argparse
+
+parser = argparse.ArgumentParser(description="PyTorch MNIST trainning")
+parser.add_argument(
+    "--sampling_type",
+    type=str,
+    default="beta",
+)
+parser.add_argument("--alpha", type=float, default=0.5)
+args = parser.parse_args()
 
 
 @dataclasses.dataclass
@@ -19,7 +28,7 @@ class Params:
 def parse_filename(filename: str) -> Params:
     tokens = filename.replace(".csv", "").split("+")
     params = Params(
-        sampling_type=tokens[0].replace("run-", ""),
+        sampling_type=tokens[0].replace("run-mnist_", ""),
         q=float(tokens[1].replace("q_", "")),
         alpha=float(tokens[2].replace("alpha_", "")),
         num_clients=int(
@@ -33,41 +42,47 @@ fig, ax = plt.subplots(figsize=(6, 5))
 plt.rc("font", size=12)
 markers = "os*xdXDHhPp12348<>"
 k = 0
-filenames = os.listdir("results/")
+filenames = os.listdir("results/alpha_" + str(args.alpha) + "/")
+
 
 for filename in filenames:
     params = parse_filename(filename)
+    print(params.sampling_type)
     # Select sampling_type to plot
-    if "weibull" in params.sampling_type or params.sampling_type == "uniform":
-        df = pd.read_csv("results/" + filename)
+    if args.sampling_type in params.sampling_type or params.sampling_type == "uniform":
+        df = pd.read_csv("results/alpha_" + str(args.alpha) + "/" + filename)
         if "_" in params.sampling_type:
-            df.plot(
-                x="Step",
-                y="Value",
+            ax.plot(
+                df["Step"],
+                df["Value"],
                 label=params.sampling_type + ",q=" + str(params.q),
-                ax=ax,
                 marker=markers[k],
                 linewidth="1.1",
-                markersize=5,
+                markersize=3,
                 markevery=2,
             )
         else:
-            df.plot(
-                x="Step",
-                y="Value",
+            ax.plot(
+                df["Step"],
+                df["Value"],
                 label=params.sampling_type,
-                ax=ax,
                 marker=markers[k],
                 linewidth="1.1",
-                markersize=5,
+                markersize=3,
                 markevery=2,
             )
         k += 1
 
+
 plt.xlabel("Communication Round", fontsize=12)
 plt.ylabel("Accuracy", fontsize=12)
-plt.title("dataset=MNIST, alpha=0.1, num_clients=100")
+plt.title("dataset=MNIST, alpha=" + str(args.alpha) + ", num_clients=100")
 plt.grid("on")
 plt.tight_layout()
-plt.savefig(os.path.join("figures", "weibull_multi_q.pdf"))
+plt.savefig(
+    os.path.join(
+        "figures", args.sampling_type + "_multi_q_alpha_" + str(args.alpha) + ".pdf"
+    )
+)
+plt.legend()
 plt.show()

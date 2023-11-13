@@ -17,7 +17,6 @@ from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
 from data_dist import DirichletSampler
-from models import cnn_cifar10
 
 parser = argparse.ArgumentParser(description="PyTorch MNIST trainning")
 parser.add_argument(
