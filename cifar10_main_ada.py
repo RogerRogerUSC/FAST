@@ -171,7 +171,7 @@ for idx in range(args.num_clients):
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, sampler=sampler, **kwargs
     )
-    device = f"cuda:{idx % torch.cuda.device_count}" if args.cuda else "cpu"
+    device = f"cuda:{idx % torch.cuda.device_count()}" if args.cuda else "cpu"
     clients.append(
         Agent(
             model=model,
