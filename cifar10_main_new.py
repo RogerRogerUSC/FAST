@@ -92,12 +92,10 @@ test_loader = torch.utils.data.DataLoader(
 )
 
 
-model_global = CNNCifar10(args)
-
 # Create clients and server
 clients = []
 for idx in range(args.num_clients):
-    model = model_global
+    model = CNNCifar10(args)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
     sampler = DirichletSampler(
