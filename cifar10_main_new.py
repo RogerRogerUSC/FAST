@@ -23,18 +23,44 @@ from local_update import local_update_selected_clients
 
 # Parameters
 parser = argparse.ArgumentParser(description="PyTorch MNIST trainning")
-parser.add_argument("--batch-size",type=int,default=64,metavar="N",help="input batch size for training (default: 64)",)
-parser.add_argument("--test-batch-size",type=int,default=256,metavar="N",help="input batch size for testing (default: 1000)",)
-parser.add_argument( "--epochs",type=int,default=50,metavar="N",help="number of epochs to train (default: 10)",)
-parser.add_argument("--lr", type=float, default=0.01, metavar="LR", help="learning rate (default: 0.01)")
-parser.add_argument("--no-cuda", action="store_true", default=False, help="disables CUDA training")
+parser.add_argument(
+    "--batch-size",
+    type=int,
+    default=64,
+    metavar="N",
+    help="input batch size for training (default: 64)",
+)
+parser.add_argument(
+    "--test-batch-size",
+    type=int,
+    default=256,
+    metavar="N",
+    help="input batch size for testing (default: 1000)",
+)
+parser.add_argument(
+    "--epochs",
+    type=int,
+    default=50,
+    metavar="N",
+    help="number of epochs to train (default: 10)",
+)
+parser.add_argument(
+    "--lr", type=float, default=0.01, metavar="LR", help="learning rate (default: 0.01)"
+)
+parser.add_argument(
+    "--no-cuda", action="store_true", default=False, help="disables CUDA training"
+)
 parser.add_argument("--seed", type=int, default=42, help="random seed")
 parser.add_argument("--sampling_type", type=str, default="uniform_weibull", help="")
 parser.add_argument("--local_update", type=int, default=10, help="Local iterations")
-parser.add_argument("--num_clients", type=int, default=250, help="Total number of clients")
+parser.add_argument(
+    "--num_clients", type=int, default=250, help="Total number of clients"
+)
 parser.add_argument("--rounds", type=int, default=3000, help="The number of rounds")
 parser.add_argument("--q", type=float, default=0.5, help="Probability q")
-parser.add_argument("--alpha", type=float, default=0.1, help="Dirichlet Distribution parameter")
+parser.add_argument(
+    "--alpha", type=float, default=0.1, help="Dirichlet Distribution parameter"
+)
 parser.add_argument("--num_channels", type=int, default=3)
 parser.add_argument("--num_classes", type=int, default=10)
 
@@ -80,12 +106,14 @@ for idx in range(args.num_clients):
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, sampler=sampler, **kwargs
     )
+    device = f"cuda:{idx % torch.cuda.device_count}" if args.cuda else "cpu"
     clients.append(
         Agent(
             model=model,
             optimizer=optimizer,
             criterion=criterion,
             train_loader=train_loader,
+            device=device,
         )
     )
 server = Server(model=CNNCifar10(args), criterion=criterion)
@@ -129,8 +157,13 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         t.update(1)
 
 
-print("Number of uniform participation rounds: " + str(server.get_num_uni_participation()))
-print("Number of arbitrary participation rounds: " + str(server.get_num_arb_participation()))
+print(
+    "Number of uniform participation rounds: " + str(server.get_num_uni_participation())
+)
+print(
+    "Number of arbitrary participation rounds: "
+    + str(server.get_num_arb_participation())
+)
 print("Ratio=" + str(server.get_num_arb_participation() / args.rounds))
 
 eval_loss, eval_acc = server.eval(test_loader)

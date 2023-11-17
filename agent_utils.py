@@ -62,7 +62,7 @@ class Metric(object):
 
 class Agent:
     def __init__(self, *, model, optimizer, criterion, train_loader, device="cpu"):
-        self.model = model
+        self.model = model.to(device)
         self.criterion = criterion
         self.optimizer = optimizer
         self.train_loader = train_loader
