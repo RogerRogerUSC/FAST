@@ -16,6 +16,7 @@ from agent_utils import Agent, Server
 from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
+from models.cnn_cifar10 import CNNCifar10
 from data_dist import DirichletSampler
 
 parser = argparse.ArgumentParser(description="PyTorch CIFAR10 trainning")
@@ -181,9 +182,8 @@ for idx in range(args.num_clients):
             device=device,
         )
     )
-server = Server(model=Net_Cifar10(), criterion=criterion)
 device = f"cuda:0" if args.cuda else "cpu"
-server = Server(model=Net_Cifar10(), criterion=criterion, device=device)
+server = Server(model=CNNCifar10(args), criterion=criterion, device=device)
 
 
 def local_update_selected_clients(clients: list[Agent], server, local_update):
