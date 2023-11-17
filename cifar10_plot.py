@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import argparse
 
-parser = argparse.ArgumentParser(description="MNIST Plot")
+parser = argparse.ArgumentParser(description="CIFAR10 Plot")
 parser.add_argument(
     "--sampling_type",
     type=str,
@@ -28,7 +28,7 @@ class Params:
 def parse_filename(filename: str) -> Params:
     tokens = filename.replace(".csv", "").split("+")
     params = Params(
-        sampling_type=tokens[0].replace("run-mnist_", ""),
+        sampling_type=tokens[0].replace("run-cifar10_", ""),
         q=tokens[1].replace("q_", ""),
         alpha=float(tokens[2].replace("alpha_", "")),
         num_clients=int(
@@ -42,7 +42,7 @@ fig, ax = plt.subplots(figsize=(6, 5))
 plt.rc("font", size=12)
 markers = "os*xdXDHhPp12348<>"
 k = 0
-filenames = os.listdir("results/mnist/alpha_" + str(args.alpha) + "/")
+filenames = os.listdir("results/cifar10/alpha_" + str(args.alpha) + "/")
 
 
 for filename in filenames:
@@ -51,7 +51,7 @@ for filename in filenames:
     # Select sampling_type to plot
     if args.sampling_type in params.sampling_type or params.sampling_type == "uniform":
         if params.q != "0.7":
-            df = pd.read_csv("results/mnist/alpha_" + str(args.alpha) + "/" + filename)
+            df = pd.read_csv("results/cifar10/alpha_" + str(args.alpha) + "/" + filename)
             if "_" in params.sampling_type:
                 ax.plot(
                     df["Step"],
@@ -77,13 +77,13 @@ for filename in filenames:
 
 plt.xlabel("Communication Round", fontsize=12)
 plt.ylabel("Accuracy", fontsize=12)
-plt.title("dataset=MNIST, alpha=" + str(args.alpha) + ", num_clients=100")
+plt.title("dataset=CIFAR10, alpha=" + str(args.alpha) + ", num_clients=50")
 plt.grid("on")
 plt.tight_layout()
 plt.legend()
 plt.savefig(
     os.path.join(
-        "figures", args.sampling_type + "_multi_q_alpha_" + str(args.alpha) + ".pdf"
+        "figures/cifar10/", "cifar10_"+args.sampling_type + "_multi_q_alpha_" + str(args.alpha) + ".pdf"
     )
 )
 plt.show()

@@ -41,18 +41,18 @@ parser.add_argument(
     help="number of epochs to train (default: 10)",
 )
 parser.add_argument(
-    "--lr", type=float, default=0.03, metavar="LR", help="learning rate (default: 0.01)"
+    "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.01)"
 )
 parser.add_argument(
     "--no-cuda", action="store_true", default=False, help="disables CUDA training"
 )
-parser.add_argument("--seed", type=int, default=420, help="random seed")
+parser.add_argument("--seed", type=int, default=42, help="random seed")
 parser.add_argument("--sampling_type", type=str, default="uniform", help="")
 parser.add_argument("--local_update", type=int, default=20, help="Local iterations")
 parser.add_argument(
-    "--num_clients", type=int, default=250, help="Total number of clients"
+    "--num_clients", type=int, default=50, help="Total number of clients"
 )
-parser.add_argument("--rounds", type=int, default=5000, help="The number of rounds")
+parser.add_argument("--rounds", type=int, default=3000, help="The number of rounds")
 parser.add_argument("--q", type=float, default=0.5, help="Probability q")
 parser.add_argument(
     "--alpha", type=float, default=0.5, help="Dirichlet Distribution parameter"
@@ -69,39 +69,33 @@ current_loc = os.path.dirname(os.path.abspath(__file__))
 
 transform_train = transforms.Compose(
     [
-        # transforms.RandomCrop(32, padding=4),
-        # transforms.RandomHorizontalFlip(),
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ]
 )
 
 transform_test = transforms.Compose(
     [
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ]
 )
 
 train_dataset = datasets.CIFAR10(
     os.path.join(current_loc, "data", "cifar10"),
     train=True,
-    transform=transform_train, 
     download=True,
-    target_transform=None,
+    transform=transform_train,
 )
-
-img_size = train_dataset[0][0].shape
-
-test_dataset = datasets.CIFAR10( 
-    os.path.join(current_loc, "data", "cifar10"), 
-    train=False, 
-    transform=transform_test, 
-    download=True, 
-    target_transform=None, 
-) 
+test_dataset = datasets.CIFAR10(
+    os.path.join(current_loc, "data", "cifar10"),
+    train=False,
+    transform=transform_test,
+)
 test_loader = torch.utils.data.DataLoader(
-    test_dataset, batch_size=args.test_batch_size, shuffle=False, **kwargs
+    test_dataset, batch_size=args.test_batch_size, **kwargs
 )
 
 
@@ -201,12 +195,14 @@ writer = SummaryWriter(
     os.path.join(
         "output",
         "cifar10",
-        f"{args.sampling_type}+q_{args.q}+alpha_{args.alpha}+num_clients_{args.num_clients}_newpara",
+        f"{args.sampling_type}+q_{args.q}+alpha_{args.alpha}+num_clients_{args.num_clients}",
         # datetime.now().strftime("%m_%d-%H-%M-%S"),
     )
 )
 
 with tqdm(total=args.rounds, desc=f"Training:") as t:
+    q = args.q
+    delta = 0
     for round in range(0, args.rounds):
         # Sample
         sampled_clients = client_sampling(
@@ -219,7 +215,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         )
         server.avg_clients(sampled_clients)
         # Decay the learning rate every M rounds
-        if round % 500 == 0:
+        if round % 1000 == 0:
             [client.decay_lr_in_optimizer(gamma=0.5) for client in clients]
 
         # Evaluation and logging
@@ -229,17 +225,16 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             eval_loss, eval_acc = server.eval(test_loader)
             writer.add_scalar("Loss/test", eval_loss, round)
             writer.add_scalar("Accuracy/test", eval_acc, round)
-            print(f"Evaluation(round {round+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
+            # print(f"Evaluation(round {round+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
             log(round, eval_acc)
+            delta = delta - eval_acc
+            q = q + 0.8*delta
+            delta = eval_acc
 
         # Tqdm update
         t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
         t.update(1)
 
-
-print("Number of uniform participation rounds: "+str(server.get_num_uni_participation()))
-print("Number of arbitrary participation rounds: "+str(server.get_num_arb_participation()))
-print("Ratio="+str(server.get_num_arb_participation()/args.rounds))
 
 eval_loss, eval_acc = server.eval(test_loader)
 writer.add_scalar("Loss/test", eval_loss, round)

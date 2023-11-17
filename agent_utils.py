@@ -66,10 +66,8 @@ class Agent:
         self.criterion = criterion
         self.optimizer = optimizer
         self.train_loader = train_loader
-
         self.train_loss = Metric("train_loss")
         self.train_accuracy = Metric("train_accuracy")
-
         self.device = device
         self.batch_idx = 0
         self.epoch = 0
@@ -78,6 +76,7 @@ class Agent:
     def get_one_train_batch(self):
         for batch_idx, (inputs, targets) in enumerate(self.train_loader):
             yield batch_idx, (inputs, targets)
+
 
     def reset_epoch(self):
         self.data_generator = self.get_one_train_batch()
@@ -92,10 +91,10 @@ class Agent:
     def decay_lr_in_optimizer(self, gamma):
         for g in self.optimizer.param_groups:
             g['lr'] *= gamma
+            print("*******************************"+str(g['lr']))
 
     def train_k_step(self, k):
         self.model.train()
-
         for i in range(k):
             try:
                 batch_idx, (inputs, targets) = next(self.data_generator)
@@ -104,13 +103,12 @@ class Agent:
                 self.reset_epoch()
                 return loss, acc
             inputs, targets = inputs.to(self.device), targets.to(self.device)
-
-            self.optimizer.zero_grad()
+            #self.optimizer.zero_grad()
+            self.model.zero_grad()
             outputs = self.model(inputs)
             loss = self.criterion(outputs, targets)
             loss.backward()
             self.optimizer.step()
-
             self.train_loss.update(loss.item())
             self.train_accuracy.update(accuracy(outputs, targets).item())
         return self.train_loss.avg, self.train_accuracy.avg
@@ -119,13 +117,11 @@ class Agent:
         self.model.eval()
         val_accuracy = Metric("val_accuracy")
         val_loss = Metric("val_loss")
-
         for batch_idx, (inputs, targets) in enumerate(test_dataloader):
             inputs, targets = inputs.to(self.device), targets.to(self.device)
             outputs = self.model(inputs)
             val_accuracy.update(accuracy(outputs, targets).item())
             val_loss.update(self.criterion(outputs, targets).item())
-
         return val_loss.avg, val_accuracy.avg
 
 
@@ -134,8 +130,9 @@ class Server:
         self.model = model
         self.flatten_params = get_flatten_model_param(self.model)
         self.criterion = criterion
-
         self.device = device
+        self.num_arb_participation = 0
+        self.num_uni_participation = 0
 
     def avg_clients(self, clients: list[Agent]):
         self.flatten_params.zero_()
@@ -148,22 +145,28 @@ class Server:
         self.model.eval()
         val_accuracy = Metric("val_accuracy")
         val_loss = Metric("val_loss")
-
         for batch_idx, (inputs, targets) in enumerate(test_dataloader):
             inputs, targets = inputs.to(self.device), targets.to(self.device)
             outputs = self.model(inputs)
             val_accuracy.update(accuracy(outputs, targets).item())
             val_loss.update(self.criterion(outputs, targets).item())
-
         return val_loss.avg, val_accuracy.avg
 
     # Determine the sampling method by q
     def determine_sampling(self, q, sampling_type):
         if "_" in sampling_type:
             sampling_methods = sampling_type.split("_")
-            if random.random() < q:
+            if random.random() < q: 
+                self.num_uni_participation += 1
                 return "uniform"
             else:
+                self.num_arb_participation += 1
                 return sampling_methods[1]
-        else:
+        else: 
             return sampling_type
+
+    def get_num_uni_participation(self): 
+        return self.num_uni_participation
+    
+    def get_num_arb_participation(self):
+        return self.num_arb_participation
