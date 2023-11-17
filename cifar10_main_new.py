@@ -117,7 +117,8 @@ for idx in range(args.num_clients):
         )
     )
 server = Server(model=CNNCifar10(args), criterion=criterion)
-
+device = f"cuda:0" if args.cuda else "cpu"
+server = Server(model=Net_Cifar10(), criterion=criterion, device=device)
 
 writer = SummaryWriter(
     os.path.join(

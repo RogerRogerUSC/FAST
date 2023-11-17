@@ -187,7 +187,8 @@ for idx in range(args.num_clients):
             device=device,
         )
     )
-server = Server(model=Net_Cifar10(), criterion=criterion)
+device = f"cuda:0" if args.cuda else "cpu"
+server = Server(model=Net_Cifar10(), criterion=criterion, device=device)
 
 
 def local_update_selected_clients(clients: list[Agent], server, local_update):

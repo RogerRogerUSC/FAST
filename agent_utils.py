@@ -77,7 +77,6 @@ class Agent:
         for batch_idx, (inputs, targets) in enumerate(self.train_loader):
             yield batch_idx, (inputs, targets)
 
-
     def reset_epoch(self):
         self.data_generator = self.get_one_train_batch()
         self.batch_idx = 0
@@ -86,12 +85,12 @@ class Agent:
         self.train_accuracy = Metric("train_accuracy")
 
     def pull_model_from_server(self, server):
-        set_flatten_model_back(self.model, server.flatten_params)
+        set_flatten_model_back(self.model, server.flatten_params.to(self.device))
 
     def decay_lr_in_optimizer(self, gamma):
         for g in self.optimizer.param_groups:
-            g['lr'] *= gamma
-            print("*******************************"+str(g['lr']))
+            g["lr"] *= gamma
+            print("**" * 10 + str(g["lr"]) + "**" * 10)
 
     def train_k_step(self, k):
         self.model.train()
@@ -103,7 +102,7 @@ class Agent:
                 self.reset_epoch()
                 return loss, acc
             inputs, targets = inputs.to(self.device), targets.to(self.device)
-            #self.optimizer.zero_grad()
+            # self.optimizer.zero_grad()
             self.model.zero_grad()
             outputs = self.model(inputs)
             loss = self.criterion(outputs, targets)
@@ -127,8 +126,8 @@ class Agent:
 
 class Server:
     def __init__(self, *, model, criterion, device="cpu"):
-        self.model = model
-        self.flatten_params = get_flatten_model_param(self.model)
+        self.model = model.to(device)
+        self.flatten_params = get_flatten_model_param(self.model).to(self.device)
         self.criterion = criterion
         self.device = device
         self.num_arb_participation = 0
@@ -137,7 +136,7 @@ class Server:
     def avg_clients(self, clients: list[Agent]):
         self.flatten_params.zero_()
         for client in clients:
-            self.flatten_params += get_flatten_model_param(client.model)
+            self.flatten_params += get_flatten_model_param(client.model).to(self.device)
         self.flatten_params.div_(len(clients))
         set_flatten_model_back(self.model, self.flatten_params)
 
@@ -156,17 +155,17 @@ class Server:
     def determine_sampling(self, q, sampling_type):
         if "_" in sampling_type:
             sampling_methods = sampling_type.split("_")
-            if random.random() < q: 
+            if random.random() < q:
                 self.num_uni_participation += 1
                 return "uniform"
             else:
                 self.num_arb_participation += 1
                 return sampling_methods[1]
-        else: 
+        else:
             return sampling_type
 
-    def get_num_uni_participation(self): 
+    def get_num_uni_participation(self):
         return self.num_uni_participation
-    
+
     def get_num_arb_participation(self):
         return self.num_arb_participation
