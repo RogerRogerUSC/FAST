@@ -85,7 +85,13 @@ class Agent:
         self.train_accuracy = Metric("train_accuracy")
 
     def pull_model_from_server(self, server):
-        set_flatten_model_back(self.model, server.flatten_params.to(self.device))
+        if self.device != "cpu":
+            # Notice the device between server and client may be different.
+            with torch.device(self.device):
+                # This context manager is necessary for the clone operation.
+                set_flatten_model_back(self.model, server.flatten_params.to(self.device))
+        else:
+            set_flatten_model_back(self.model, server.flatten_params)
 
     def decay_lr_in_optimizer(self, gamma):
         for g in self.optimizer.param_groups:
