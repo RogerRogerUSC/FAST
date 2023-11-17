@@ -127,7 +127,7 @@ class Agent:
 class Server:
     def __init__(self, *, model, criterion, device="cpu"):
         self.model = model.to(device)
-        self.flatten_params = get_flatten_model_param(self.model).to(self.device)
+        self.flatten_params = get_flatten_model_param(self.model).to(device)
         self.criterion = criterion
         self.device = device
         self.num_arb_participation = 0
