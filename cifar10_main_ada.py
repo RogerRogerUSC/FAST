@@ -16,6 +16,7 @@ from agent_utils import Agent, Server
 from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
+from models.cnn_cifar10 import CNNCifar10
 from data_dist import DirichletSampler
 from parms import get_parms
 
@@ -132,15 +133,18 @@ for idx in range(args.num_clients):
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, sampler=sampler, **kwargs
     )
+    device = f"cuda:{idx % torch.cuda.device_count()}" if args.cuda else "cpu"
     clients.append(
         Agent(
             model=model,
             optimizer=optimizer,
             criterion=criterion,
             train_loader=train_loader,
+            device=device,
         )
     )
-server = Server(model=Net_Cifar10(), criterion=criterion)
+device = f"cuda:0" if args.cuda else "cpu"
+server = Server(model=CNNCifar10(args), criterion=criterion, device=device)
 
 
 def local_update_selected_clients(clients: list[Agent], server, local_update):
@@ -148,8 +152,8 @@ def local_update_selected_clients(clients: list[Agent], server, local_update):
     for client in clients:
         train_loss, train_acc = client.train_k_step(k=local_update)
         train_loss_avg += train_loss
-        train_acc_avg += train_acc 
-    return train_loss_avg/len(clients), train_acc_avg/len(clients)
+        train_acc_avg += train_acc
+    return train_loss_avg / len(clients), train_acc_avg / len(clients)
 
 
 writer = SummaryWriter(
@@ -189,7 +193,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             # print(f"Evaluation(round {round+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
             log(round, eval_acc)
             delta = delta - eval_acc
-            q = q + 0.8*delta
+            q = q + 0.8 * delta
             delta = eval_acc
 
         # Tqdm update

@@ -62,7 +62,7 @@ class Metric(object):
 
 class Agent:
     def __init__(self, *, model, optimizer, criterion, train_loader, device="cpu"):
-        self.model = model
+        self.model = model.to(device)
         self.criterion = criterion
         self.optimizer = optimizer
         self.train_loader = train_loader
@@ -76,7 +76,6 @@ class Agent:
     def get_one_train_batch(self):
         for batch_idx, (inputs, targets) in enumerate(self.train_loader):
             yield batch_idx, (inputs, targets)
-
 
     def reset_epoch(self):
         self.data_generator = self.get_one_train_batch()
@@ -99,7 +98,7 @@ class Agent:
     def decay_lr_in_optimizer(self, gamma):
         for g in self.optimizer.param_groups:
             g['lr'] *= gamma
-            print("**" * 10 + str(g["lr"]) + "**" * 10)
+            print("*******************************"+str(g['lr']))
 
     def train_k_step(self, k):
         self.model.train()
@@ -111,7 +110,7 @@ class Agent:
                 self.reset_epoch()
                 return loss, acc
             inputs, targets = inputs.to(self.device), targets.to(self.device)
-            #self.optimizer.zero_grad()
+            # self.optimizer.zero_grad()
             self.model.zero_grad()
             outputs = self.model(inputs)
             loss = self.criterion(outputs, targets)
@@ -164,17 +163,17 @@ class Server:
     def determine_sampling(self, q, sampling_type):
         if "_" in sampling_type:
             sampling_methods = sampling_type.split("_")
-            if random.random() < q: 
+            if random.random() < q:
                 self.num_uni_participation += 1
                 return "uniform"
             else:
                 self.num_arb_participation += 1
                 return sampling_methods[1]
-        else: 
+        else:
             return sampling_type
 
-    def get_num_uni_participation(self): 
+    def get_num_uni_participation(self):
         return self.num_uni_participation
-    
+
     def get_num_arb_participation(self):
         return self.num_arb_participation

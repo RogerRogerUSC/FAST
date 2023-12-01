@@ -46,20 +46,20 @@ transform_test = transforms.Compose(
 train_dataset = datasets.CIFAR10(
     os.path.join(current_loc, "data", "cifar10"),
     train=True,
-    transform=transform_train, 
+    transform=transform_train,
     download=True,
     target_transform=None,
 )
 
 img_size = train_dataset[0][0].shape
 
-test_dataset = datasets.CIFAR10( 
-    os.path.join(current_loc, "data", "cifar10"), 
-    train=False, 
-    transform=transform_test, 
-    download=True, 
-    target_transform=None, 
-) 
+test_dataset = datasets.CIFAR10(
+    os.path.join(current_loc, "data", "cifar10"),
+    train=False,
+    transform=transform_test,
+    download=True,
+    target_transform=None,
+)
 test_loader = torch.utils.data.DataLoader(
     test_dataset, batch_size=args.test_batch_size, shuffle=False, **kwargs
 )
@@ -137,15 +137,18 @@ for idx in range(args.num_clients):
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, sampler=sampler, **kwargs
     )
+    device = f"cuda:{idx % torch.cuda.device_count()}" if args.cuda else "cpu"
     clients.append(
         Agent(
             model=model,
             optimizer=optimizer,
             criterion=criterion,
             train_loader=train_loader,
+            device=device,
         )
     )
-server = Server(model=Net_Cifar10(), criterion=criterion)
+device = f"cuda:0" if args.cuda else "cpu"
+server = Server(model=Net_Cifar10(), criterion=criterion, device=device)
 
 
 def local_update_selected_clients(clients: list[Agent], server, local_update):
@@ -153,8 +156,8 @@ def local_update_selected_clients(clients: list[Agent], server, local_update):
     for client in clients:
         train_loss, train_acc = client.train_k_step(k=local_update)
         train_loss_avg += train_loss
-        train_acc_avg += train_acc 
-    return train_loss_avg/len(clients), train_acc_avg/len(clients)
+        train_acc_avg += train_acc
+    return train_loss_avg / len(clients), train_acc_avg / len(clients)
 
 
 writer = SummaryWriter(
@@ -197,9 +200,14 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         t.update(1)
 
 
-print("Number of uniform participation rounds: "+str(server.get_num_uni_participation()))
-print("Number of arbitrary participation rounds: "+str(server.get_num_arb_participation()))
-print("Ratio="+str(server.get_num_arb_participation()/args.rounds))
+print(
+    "Number of uniform participation rounds: " + str(server.get_num_uni_participation())
+)
+print(
+    "Number of arbitrary participation rounds: "
+    + str(server.get_num_arb_participation())
+)
+print("Ratio=" + str(server.get_num_arb_participation() / args.rounds))
 
 eval_loss, eval_acc = server.eval(test_loader)
 writer.add_scalar("Loss/test", eval_loss, round)
