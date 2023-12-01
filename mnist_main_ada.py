@@ -17,49 +17,11 @@ from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
 from data_dist import DirichletSampler
-
-parser = argparse.ArgumentParser(description="PyTorch MNIST trainning")
-parser.add_argument(
-    "--batch-size",
-    type=int,
-    default=64,
-    metavar="N",
-    help="input batch size for training (default: 64)",
-)
-parser.add_argument(
-    "--test-batch-size",
-    type=int,
-    default=256,
-    metavar="N",
-    help="input batch size for testing (default: 1000)",
-)
-parser.add_argument(
-    "--epoch",
-    type=int,
-    default=10,
-    metavar="N",
-    help="number of epochs to train (default: 10)",
-)
-parser.add_argument(
-    "--lr", type=float, default=0.01, metavar="LR", help="learning rate (default: 0.01)"
-)
-parser.add_argument(
-    "--no-cuda", action="store_true", default=False, help="disables CUDA training"
-)
-parser.add_argument("--seed", type=int, default=42, help="random seed")
-parser.add_argument("--sampling_type", type=str, default="uniform_weibull", help="")
-parser.add_argument("--local_update", type=int, default=10, help="Local iterations")
-parser.add_argument(
-    "--num_clients", type=int, default=100, help="Total number of clients"
-)
-parser.add_argument("--rounds", type=int, default=500, help="The number of rounds")
-parser.add_argument("--q", type=float, default=0.5, help="Probability q")
-parser.add_argument(
-    "--alpha", type=float, default=0.1, help="Dirichlet Distribution parameter"
-)
+from parms import get_parms
 
 
-args = parser.parse_args()
+
+args = get_parms("MNIST").parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 torch.manual_seed(args.seed)
 
@@ -158,7 +120,7 @@ writer = SummaryWriter(
 list_q = []
 
 with tqdm(total=args.rounds, desc=f"Training:") as t:
-    q = args.q
+    q = 0
     delta = 0
     for round in range(0, args.rounds):
         sampled_clients = client_sampling(
@@ -177,7 +139,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             eval_loss, eval_acc = server.eval(test_loader)
             writer.add_scalar("Loss/test", eval_loss, round)
             writer.add_scalar("Accuracy/test", eval_acc, round)
-            print(f"Evaluation(round {round+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
+            print(f"Evaluation(round {round}): {eval_loss=:.4f} {eval_acc=:.3f}")
             log(round, eval_acc)
             # Adaptive q
             delta = delta - eval_acc

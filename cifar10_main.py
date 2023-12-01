@@ -17,52 +17,12 @@ from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
 from data_dist import DirichletSampler
-
-parser = argparse.ArgumentParser(description="PyTorch CIFAR10 trainning")
-parser.add_argument(
-    "--batch-size",
-    type=int,
-    default=128,
-    metavar="N",
-    help="input batch size for training (default: 128)",
-)
-parser.add_argument(
-    "--test-batch-size",
-    type=int,
-    default=256,
-    metavar="N",
-    help="input batch size for testing (default: 1000)",
-)
-parser.add_argument(
-    "--epoch",
-    type=int,
-    default=10,
-    metavar="N",
-    help="number of epochs to train (default: 10)",
-)
-parser.add_argument(
-    "--lr", type=float, default=0.03, metavar="LR", help="learning rate (default: 0.01)"
-)
-parser.add_argument(
-    "--no-cuda", action="store_true", default=False, help="disables CUDA training"
-)
-parser.add_argument("--seed", type=int, default=420, help="random seed")
-parser.add_argument("--sampling_type", type=str, default="uniform", help="")
-parser.add_argument("--local_update", type=int, default=20, help="Local iterations")
-parser.add_argument(
-    "--num_clients", type=int, default=250, help="Total number of clients"
-)
-parser.add_argument("--rounds", type=int, default=5000, help="The number of rounds")
-parser.add_argument("--q", type=float, default=0.5, help="Probability q")
-parser.add_argument(
-    "--alpha", type=float, default=0.5, help="Dirichlet Distribution parameter"
-)
+from parms import get_parms
 
 
-args = parser.parse_args()
+args = get_parms("CIFAR10").parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 torch.manual_seed(args.seed)
-
 
 kwargs = {"num_workers": 1, "pin_memory": True} if args.cuda else {}
 current_loc = os.path.dirname(os.path.abspath(__file__))

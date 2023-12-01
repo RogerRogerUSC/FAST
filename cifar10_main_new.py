@@ -19,29 +19,13 @@ from log import log
 from data_dist import DirichletSampler
 from models.cnn_cifar10 import CNNCifar10
 from local_update import local_update_selected_clients
+from parms import get_parms
 
 
 # Parameters
-parser = argparse.ArgumentParser(description="PyTorch MNIST trainning")
-parser.add_argument("--batch-size",type=int,default=64,metavar="N",help="input batch size for training (default: 64)",)
-parser.add_argument("--test-batch-size",type=int,default=256,metavar="N",help="input batch size for testing (default: 1000)",)
-parser.add_argument( "--epochs",type=int,default=50,metavar="N",help="number of epochs to train (default: 10)",)
-parser.add_argument("--lr", type=float, default=0.01, metavar="LR", help="learning rate (default: 0.01)")
-parser.add_argument("--no-cuda", action="store_true", default=False, help="disables CUDA training")
-parser.add_argument("--seed", type=int, default=42, help="random seed")
-parser.add_argument("--sampling_type", type=str, default="uniform_weibull", help="")
-parser.add_argument("--local_update", type=int, default=10, help="Local iterations")
-parser.add_argument("--num_clients", type=int, default=250, help="Total number of clients")
-parser.add_argument("--rounds", type=int, default=3000, help="The number of rounds")
-parser.add_argument("--q", type=float, default=0.5, help="Probability q")
-parser.add_argument("--alpha", type=float, default=0.1, help="Dirichlet Distribution parameter")
-parser.add_argument("--num_channels", type=int, default=3)
-parser.add_argument("--num_classes", type=int, default=10)
-
-args = parser.parse_args()
+args = get_parms("CIFAR10").parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 torch.manual_seed(args.seed)
-
 
 kwargs = {"num_workers": 1, "pin_memory": True} if args.cuda else {}
 current_loc = os.path.dirname(os.path.abspath(__file__))
