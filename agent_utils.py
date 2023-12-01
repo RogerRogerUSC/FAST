@@ -85,13 +85,21 @@ class Agent:
         self.train_loss = Metric("train_loss")
         self.train_accuracy = Metric("train_accuracy")
 
+
     def pull_model_from_server(self, server):
-        set_flatten_model_back(self.model, server.flatten_params)
+        if self.device != "cpu":
+            # Notice the device between server and client may be different.
+            with torch.device(self.device):
+                # This context manager is necessary for the clone operation.
+                set_flatten_model_back(self.model, server.flatten_params.to(self.device))
+        else:
+            set_flatten_model_back(self.model, server.flatten_params)
+
 
     def decay_lr_in_optimizer(self, gamma):
         for g in self.optimizer.param_groups:
             g['lr'] *= gamma
-            print("*******************************"+str(g['lr']))
+            print("**" * 10 + str(g["lr"]) + "**" * 10)
 
     def train_k_step(self, k):
         self.model.train()
@@ -127,8 +135,8 @@ class Agent:
 
 class Server:
     def __init__(self, *, model, criterion, device="cpu"):
-        self.model = model
-        self.flatten_params = get_flatten_model_param(self.model)
+        self.model = model.to(device)
+        self.flatten_params = get_flatten_model_param(self.model).to(device)
         self.criterion = criterion
         self.device = device
         self.num_arb_participation = 0
@@ -137,7 +145,7 @@ class Server:
     def avg_clients(self, clients: list[Agent]):
         self.flatten_params.zero_()
         for client in clients:
-            self.flatten_params += get_flatten_model_param(client.model)
+            self.flatten_params += get_flatten_model_param(client.model).to(self.device)
         self.flatten_params.div_(len(clients))
         set_flatten_model_back(self.model, self.flatten_params)
 
