@@ -1,13 +1,9 @@
-import argparse
-import math
 import os
 from datetime import datetime
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
-import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 
 import torchvision.datasets as datasets
@@ -16,7 +12,7 @@ from agent_utils import Agent, Server
 from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
-from data_dist import DirichletSampler
+from data_dist import get_data_sampler
 from config import get_parms
 from models.cnn_cifar10 import CNNCifar10, CNNCifar10_test
 from local_update import local_update_selected_clients
@@ -36,6 +32,7 @@ transform_train = transforms.Compose(
     ]
 )
 
+
 transform_test = transforms.Compose(
     [
         transforms.ToTensor(),
@@ -51,7 +48,7 @@ train_dataset = datasets.CIFAR10(
     target_transform=None,
 )
 
-img_size = train_dataset[0][0].shape
+# img_size = train_dataset[0][0].shape
 
 test_dataset = datasets.CIFAR10(
     os.path.join(current_loc, "data", "cifar10"),
@@ -68,21 +65,13 @@ test_loader = torch.utils.data.DataLoader(
 # Create clients and server
 clients = []
 for idx in range(args.num_clients):
-    model = CNNCifar10(args=args)
+    model = CNNCifar10()
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(
         model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-    # Sample data with uniform distribution
-    # sampler = torch.utils.data.DistributedSampler(
-    #     train_dataset, num_replicas=args.num_clients, rank=idx, shuffle=True
-    # )
-
-    # Sample data with Dirichlet distribution
-    sampler = DirichletSampler(
-        dataset=train_dataset, size=args.num_clients, rank=idx, alpha=args.alpha
-    )
+    sampler = get_data_sampler(dataset=train_dataset, args=args, idx=idx)
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, sampler=sampler, **kwargs
     )
@@ -97,7 +86,7 @@ for idx in range(args.num_clients):
         )
     )
 device = f"cuda:0" if args.cuda else "cpu"
-server = Server(model=CNNCifar10_test(args=args), criterion=criterion, device=device)
+server = Server(model=CNNCifar10_test(), criterion=criterion, device=device)
 
 
 writer = SummaryWriter(
@@ -122,8 +111,8 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         )
         server.avg_clients(sampled_clients)
         # Decay the learning rate every M rounds
-        if round % 499 == 0:
-            [client.decay_lr_in_optimizer(gamma=0.5) for client in clients]
+        # if round == 350:
+        #     [client.decay_lr_in_optimizer(gamma=0.5) for client in clients]
 
         # Evaluation and logging
         writer.add_scalar("Loss/train", train_loss, round)

@@ -1,5 +1,3 @@
-import argparse
-import math
 import os
 from datetime import datetime
 
@@ -7,17 +5,15 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
-
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from agent_utils import Agent, Server
 from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
-from data_dist import DirichletSampler
-from parms import get_parms
+from data_dist import get_data_sampler
+from config import get_parms
 
 
 
@@ -76,15 +72,7 @@ for idx in range(args.num_clients):
         model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-    # Sample data with uniform distribution
-    # sampler = torch.utils.data.DistributedSampler(
-    #     train_dataset, num_replicas=args.num_clients, rank=idx, shuffle=True
-    # )
-
-    # Sample data with Dirichlet distribution
-    sampler = DirichletSampler(
-        dataset=train_dataset, size=args.num_clients, rank=idx, alpha=args.alpha
-    )
+    sampler = get_data_sampler(dataset=train_dataset, args=args, idx=idx)
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, sampler=sampler, **kwargs
     )
