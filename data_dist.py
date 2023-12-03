@@ -1,9 +1,26 @@
 import collections
 import math
-
 import torch
 import numpy as np
 from torch.utils.data import Sampler
+
+
+def get_data_sampler(dataset, args, idx):
+    # Sample data with uniform distribution
+    if args.data_distribution == "uniform":
+        sampler = torch.utils.data.DistributedSampler(
+            dataset, num_replicas=args.num_clients, rank=idx, shuffle=True
+        )
+        return sampler
+    # Sample data with Dirichlet distribution
+    elif args.data_distribution == "dirichlet":
+        sampler = DirichletSampler(
+            dataset=dataset, size=args.num_clients, rank=idx, alpha=args.alpha
+        )
+        return sampler
+    else:
+        raise Exception("Unsupported Data Distribution. ")
+
 
 class DirichletSampler(Sampler):
     def __init__(self, dataset, *, size, rank, alpha, random_seed=42, shuffle=True):
@@ -33,7 +50,7 @@ class DirichletSampler(Sampler):
                 )
             else:
                 self.indices_per_label[i] = np.array(self.indices_per_label[i])
-        
+
         # Generate the dirichlet dist for each class of all agents
         # IMPORTANT: we need to make sure all agents use the same random seed.
         rng = np.random.default_rng(random_seed)
