@@ -4,7 +4,7 @@ import random
 
 
 def client_sampling(sampling_type, clients):
-    if sampling_type == "arbitrary": 
+    if sampling_type == "arbitrary":
         return arbitrary_client_sampling(clients)
     elif sampling_type == "uniform":
         return uniform_client_sampling(clients)
@@ -20,19 +20,21 @@ def client_sampling(sampling_type, clients):
         return weibull_client_sampling(clients)
     elif sampling_type == "cyclic":
         return cyclic_client_sampling(clients)
+    else:
+        raise Exception(f"{sampling_type} doesn't exist. ")
+
 
 # Mix all client sampling
-def arbitrary_client_sampling(clients): 
+def arbitrary_client_sampling(clients):
     random_number = random.random()
-    threshold1 = 1/3
-    threshold2 = 2/3
+    threshold1 = 1 / 3
+    threshold2 = 2 / 3
     if random_number < threshold1:
         return weibull_client_sampling(clients)
     elif random_number < threshold2:
         return cyclic_client_sampling(clients)
     else:
-        return beta_client_sampling(clients)    
-
+        return beta_client_sampling(clients)
 
 
 def uniform_client_sampling(clients):
@@ -60,7 +62,7 @@ def gamma_client_sampling(clients):
 
 
 def beta_client_sampling(clients):
-    alpha = 5 
+    alpha = 5
     beta = 1
     weights = torch.rand(len(clients))
     sampled_clients = [
@@ -103,9 +105,7 @@ def bernoulli_client_sampling(clients):
 
 
 def markovian_client_sampling(clients):
-    transition_matrix = torch.tensor(
-        [[ 0.3, 0.7], [0.6, 0.4]]
-    )
+    transition_matrix = torch.tensor([[0.3, 0.7], [0.6, 0.4]])
     initial_distribution = torch.tensor([0.1, 0.9])
     current_state = torch.distributions.Categorical(initial_distribution).sample()
     sampled_clients = []
