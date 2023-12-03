@@ -209,5 +209,6 @@ pyrightconfig.json
 # Data and output
 data/
 output/
-
+figures/
+results/
 # End of https://www.toptal.com/developers/gitignore/api/python,macos
