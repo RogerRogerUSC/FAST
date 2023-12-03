@@ -6,7 +6,7 @@ def get_parms(dataset):
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=128,
+        default=64,
         metavar="N",
         help="input batch size for training (default: 64)",
     )
@@ -25,7 +25,7 @@ def get_parms(dataset):
         help="number of epochs to train (default: 10)",
     )
     parser.add_argument(
-        "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.01)"
+        "--lr", type=float, default=0.01, metavar="LR", help="learning rate (default: 0.01)"
     )
     parser.add_argument(
         "--no-cuda", action="store_true", default=False, help="disables CUDA training"
@@ -34,11 +34,12 @@ def get_parms(dataset):
     parser.add_argument("--sampling_type", type=str, default="uniform", help="")
     parser.add_argument("--local_update", type=int, default=10, help="Local iterations")
     parser.add_argument(
-        "--num_clients", type=int, default=200, help="Total number of clients"
+        "--num_clients", type=int, default=100, help="Total number of clients"
     )
     parser.add_argument("--rounds", type=int, default=10000, help="The number of rounds")
     parser.add_argument("--q", type=float, default=0.5, help="Probability q")
     parser.add_argument(
         "--alpha", type=float, default=0.1, help="Dirichlet Distribution parameter"
     )
+    parser.add_argument("--data_distribution", type=str, default="uniform", help="[uniform, dirichlet]")
     return parser
