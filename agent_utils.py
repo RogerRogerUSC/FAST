@@ -98,7 +98,6 @@ class Agent:
     def decay_lr_in_optimizer(self, gamma):
         for g in self.optimizer.param_groups:
             g['lr'] *= gamma
-            print("*******************************"+str(g['lr']))
 
     def train_k_step(self, k):
         self.model.train()

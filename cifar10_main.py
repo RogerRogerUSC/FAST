@@ -17,7 +17,9 @@ from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
 from data_dist import DirichletSampler
-from parms import get_parms
+from config import get_parms
+from models.cnn_cifar10 import CNNCifar10, CNNCifar10_test
+from local_update import local_update_selected_clients
 
 
 args = get_parms("CIFAR10").parse_args()
@@ -29,8 +31,6 @@ current_loc = os.path.dirname(os.path.abspath(__file__))
 
 transform_train = transforms.Compose(
     [
-        # transforms.RandomCrop(32, padding=4),
-        # transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ]
@@ -65,61 +65,10 @@ test_loader = torch.utils.data.DataLoader(
 )
 
 
-class Net_Cifar10(nn.Module):
-    def __init__(self):
-        super(Net_Cifar10, self).__init__()
-
-        self.conv = nn.Sequential(
-            nn.Conv2d(
-                in_channels=3,
-                out_channels=32,
-                kernel_size=3,
-                stride=1,
-                padding=1,
-            ),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(
-                in_channels=32,
-                out_channels=32,
-                kernel_size=3,
-                stride=1,
-                padding=1,
-            ),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-
-        self.fc1 = nn.Sequential(
-            nn.Linear(8 * 8 * 32, 256),
-            nn.ReLU(),
-            nn.Linear(256, 64),
-            nn.ReLU(),
-        )
-        self.fc2 = nn.Linear(64, 10)
-
-        # Use Kaiming initialization for layers with ReLU activation
-        @torch.no_grad()
-        def init_weights(m):
-            if type(m) == nn.Linear or type(m) == nn.Conv2d:
-                torch.nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
-                torch.nn.init.zeros_(m.bias)
-
-        self.conv.apply(init_weights)
-        self.fc1.apply(init_weights)
-
-    def forward(self, x):
-        conv_ = self.conv(x)
-        fc_ = conv_.view(-1, 8 * 8 * 32)
-        fc1_ = self.fc1(fc_)
-        output = self.fc2(fc1_)
-        return output
-
-
 # Create clients and server
 clients = []
 for idx in range(args.num_clients):
-    model = Net_Cifar10()
+    model = CNNCifar10(args=args)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(
         model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4
@@ -148,16 +97,7 @@ for idx in range(args.num_clients):
         )
     )
 device = f"cuda:0" if args.cuda else "cpu"
-server = Server(model=Net_Cifar10(), criterion=criterion, device=device)
-
-
-def local_update_selected_clients(clients: list[Agent], server, local_update):
-    train_loss_avg, train_acc_avg = 0, 0
-    for client in clients:
-        train_loss, train_acc = client.train_k_step(k=local_update)
-        train_loss_avg += train_loss
-        train_acc_avg += train_acc
-    return train_loss_avg / len(clients), train_acc_avg / len(clients)
+server = Server(model=CNNCifar10_test(args=args), criterion=criterion, device=device)
 
 
 writer = SummaryWriter(
@@ -171,7 +111,7 @@ writer = SummaryWriter(
 
 with tqdm(total=args.rounds, desc=f"Training:") as t:
     for round in range(0, args.rounds):
-        # Sample
+        # Sample clients
         sampled_clients = client_sampling(
             server.determine_sampling(args.q, args.sampling_type), clients
         )
@@ -182,7 +122,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         )
         server.avg_clients(sampled_clients)
         # Decay the learning rate every M rounds
-        if round % 500 == 0:
+        if round % 499 == 0:
             [client.decay_lr_in_optimizer(gamma=0.5) for client in clients]
 
         # Evaluation and logging
@@ -192,7 +132,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             eval_loss, eval_acc = server.eval(test_loader)
             writer.add_scalar("Loss/test", eval_loss, round)
             writer.add_scalar("Accuracy/test", eval_acc, round)
-            print(f"Evaluation(round {round+1}): {eval_loss=:.4f} {eval_acc=:.3f}")
+            print(f"Evaluation(round {round}): {eval_loss=:.3f} {eval_acc=:.3f}")
             log(round, eval_acc)
 
         # Tqdm update
@@ -212,5 +152,5 @@ print("Ratio=" + str(server.get_num_arb_participation() / args.rounds))
 eval_loss, eval_acc = server.eval(test_loader)
 writer.add_scalar("Loss/test", eval_loss, round)
 writer.add_scalar("Accuracy/test", eval_acc, round)
-print(f"Evaluation(final round): {eval_loss=:.4f} {eval_acc=:.3f}")
+print(f"Evaluation(final round): {eval_loss=:.3f} {eval_acc=:.3f}")
 writer.close()
