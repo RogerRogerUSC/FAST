@@ -3,7 +3,7 @@ import numpy as np
 import random
 
 
-def client_sampling(sampling_type, clients):
+def client_sampling(sampling_type, clients, round):
     if sampling_type == "arbitrary":
         return arbitrary_client_sampling(clients)
     elif sampling_type == "uniform":
@@ -19,9 +19,9 @@ def client_sampling(sampling_type, clients):
     elif sampling_type == "weibull":
         return weibull_client_sampling(clients)
     elif sampling_type == "cyclic":
-        return cyclic_client_sampling(clients)
+        return cyclic_client_sampling(clients, round)
     else:
-        raise Exception(f"{sampling_type} doesn't exist. ")
+        raise Exception(f"Unsupported Sampling type: {sampling_type}. ")
 
 
 # Mix all client sampling
@@ -73,10 +73,16 @@ def beta_client_sampling(clients):
     return sampled_clients
 
 
-def cyclic_client_sampling(clients):
-    current_round = 1
-    start_index = (current_round * int(len(clients) * 0.1)) % len(clients)
-    sampled_clients = clients[start_index : start_index + int(len(clients) * 0.1)]
+# Cyclic client participation: Divide all clients into 5 groups.
+def cyclic_client_sampling(clients, round):
+    num_groups = 5
+    length_each_group = int(len(clients) / num_groups)
+    start_index = int((round % num_groups) * len(clients) / num_groups)
+    sampled_clients = np.random.choice(
+        clients[start_index : start_index + length_each_group],
+        size=int(len(clients) * 0.1),
+        replace=False,
+    )
     return sampled_clients
 
 
