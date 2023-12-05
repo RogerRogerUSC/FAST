@@ -38,7 +38,10 @@ def arbitrary_client_sampling(clients):
 
 
 def uniform_client_sampling(clients):
-    return random.sample(clients, int(len(clients) * 0.1))
+    uniform_samples_indices = np.random.uniform(high=len(clients), size=int(len(clients) * 0.1))
+    uniform_samples_indices = uniform_samples_indices.astype(int)
+    sampled_clients = [clients[i] for i in uniform_samples_indices]
+    return sampled_clients
 
 
 def gamma_client_sampling(clients):
@@ -64,21 +67,11 @@ def gamma_client_sampling(clients):
 def beta_client_sampling(clients):
     alpha = 5
     beta = 1
-    weights = torch.rand(len(clients))
-    sampled_clients = [
-        client
-        for client, weight in zip(clients, weights)
-        if weight < alpha / (alpha + beta)
-    ][: int(len(clients) * 0.1)]
-    return sampled_clients
-
-def beta_client_sampling(clients): 
-    alpha = 5
-    beta = 1
     beta_samples_indices = np.random.beta(alpha, beta, size=int(len(clients) * 0.1))
-    beta_samples_indices = (beta_samples_indices*len(clients)).astype(int)
+    beta_samples_indices = (beta_samples_indices * len(clients)).astype(int)
     sampled_clients = [clients[i] for i in beta_samples_indices]
     return sampled_clients
+
 
 # Cyclic client participation: Divide all clients into 5 groups.
 def cyclic_client_sampling(clients, round):
@@ -97,7 +90,9 @@ def weibull_client_sampling(clients):
     shape = 1.0
     weibull_samples_indices = np.random.weibull(shape, size=int(len(clients) * 0.1))
     norm = np.linalg.norm(weibull_samples_indices)
-    weibull_samples_indices = ((weibull_samples_indices / norm) * len(clients)).astype(int)
+    weibull_samples_indices = ((weibull_samples_indices / norm) * len(clients)).astype(
+        int
+    )
     sampled_clients = [clients[i] for i in weibull_samples_indices]
     return sampled_clients
 
