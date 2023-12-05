@@ -72,6 +72,13 @@ def beta_client_sampling(clients):
     ][: int(len(clients) * 0.1)]
     return sampled_clients
 
+def beta_client_sampling(clients): 
+    alpha = 5
+    beta = 1
+    beta_samples_indices = np.random.beta(alpha, beta, size=int(len(clients) * 0.1))
+    beta_samples_indices = (beta_samples_indices*len(clients)).astype(int)
+    sampled_clients = [clients[i] for i in beta_samples_indices]
+    return sampled_clients
 
 # Cyclic client participation: Divide all clients into 5 groups.
 def cyclic_client_sampling(clients, round):
