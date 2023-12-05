@@ -87,18 +87,11 @@ def cyclic_client_sampling(clients, round):
 
 
 def weibull_client_sampling(clients):
-    shape = 1.5
-    scale = 1.0
-    # Generate random samples from the Weibull distribution
-    samples = torch.distributions.Weibull(shape, scale).sample(
-        sample_shape=(int(len(clients) * 0.1),)
-    )
-    # Map the samples to client indices
-    sampled_clients_indices = (samples * len(clients)).long()
-    # Ensure the selected indices are within bounds
-    sampled_clients_indices = torch.clamp(sampled_clients_indices, 0, len(clients) - 1)
-    # Get the selected clients
-    sampled_clients = [clients[i] for i in sampled_clients_indices]
+    shape = 1.0
+    weibull_samples_indices = np.random.weibull(shape, size=int(len(clients) * 0.1))
+    norm = np.linalg.norm(weibull_samples_indices)
+    weibull_samples_indices = ((weibull_samples_indices / norm) * len(clients)).astype(int)
+    sampled_clients = [clients[i] for i in weibull_samples_indices]
     return sampled_clients
 
 
