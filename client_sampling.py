@@ -38,35 +38,26 @@ def arbitrary_client_sampling(clients):
 
 
 def uniform_client_sampling(clients):
-    uniform_samples_indices = np.random.uniform(high=len(clients), size=int(len(clients) * 0.1))
+    uniform_samples_indices = np.random.uniform(
+        high=len(clients), size=int(len(clients) * 1)
+    )
     uniform_samples_indices = uniform_samples_indices.astype(int)
     sampled_clients = [clients[i] for i in uniform_samples_indices]
     return sampled_clients
 
 
 def gamma_client_sampling(clients):
-    # Define parameters for the Gamma distribution
-    gamma_shape = 3.0
-    gamma_scale = 2.0
-    # Generate weights using PyTorch's Gamma function
-    weights = torch.tensor(
-        np.random.gamma(shape=gamma_shape, scale=gamma_scale, size=len(clients))
-    )
-    # Normalize weights to ensure their sum is 1
-    normalized_weights = weights / weights.sum()
-    # Sample clients using weights
-    num_selected_clients = int(len(clients) * 0.1)
-    selected_clients_indices = torch.multinomial(
-        normalized_weights, num_selected_clients, replacement=False
-    )
-    # Return the selected clients
-    selected_clients = [clients[i] for i in selected_clients_indices]
-    return selected_clients
+    shape = 1
+    gamma_samples_indices = np.random.gamma(shape, size=int(len(clients) * 0.1))
+    norm = np.linalg.norm(gamma_samples_indices)
+    gamma_samples_indices = ((gamma_samples_indices / norm) * len(clients)).astype(int)
+    sampled_clients = [clients[i] for i in gamma_samples_indices]
+    return sampled_clients
 
 
 def beta_client_sampling(clients):
-    alpha = 5
-    beta = 1
+    alpha = 1
+    beta = 3
     beta_samples_indices = np.random.beta(alpha, beta, size=int(len(clients) * 0.1))
     beta_samples_indices = (beta_samples_indices * len(clients)).astype(int)
     sampled_clients = [clients[i] for i in beta_samples_indices]
@@ -87,13 +78,13 @@ def cyclic_client_sampling(clients, round):
 
 
 def weibull_client_sampling(clients):
-    shape = 1.0
-    weibull_samples_indices = np.random.weibull(shape, size=int(len(clients) * 0.1))
-    norm = np.linalg.norm(weibull_samples_indices)
-    weibull_samples_indices = ((weibull_samples_indices / norm) * len(clients)).astype(
+    shape = 0.5
+    weibull_sample_indices = np.random.weibull(shape, size=int(len(clients) * 0.1))
+    norm = np.linalg.norm(weibull_sample_indices)
+    weibull_sample_indices = ((weibull_sample_indices / norm) * len(clients)).astype(
         int
     )
-    sampled_clients = [clients[i] for i in weibull_samples_indices]
+    sampled_clients = [clients[i] for i in weibull_sample_indices]
     return sampled_clients
 
 
