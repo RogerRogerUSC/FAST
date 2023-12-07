@@ -10,8 +10,6 @@ def client_sampling(sampling_type, clients, round):
         return uniform_client_sampling(clients)
     elif sampling_type == "gamma":
         return gamma_client_sampling(clients)
-    elif sampling_type == "bernoulli":
-        return bernoulli_client_sampling(clients)
     elif sampling_type == "beta":
         return beta_client_sampling(clients)
     elif sampling_type == "markovian":
@@ -85,14 +83,6 @@ def weibull_client_sampling(clients):
         int
     )
     sampled_clients = [clients[i] for i in weibull_sample_indices]
-    return sampled_clients
-
-
-def bernoulli_client_sampling(clients):
-    sampled_clients = [client for client in clients if torch.rand(1).item() < 0.3][
-        : int(len(clients) * 0.1)
-    ]
-    # sampled_clients = [client for client in clients if torch.rand(1).item()<0.3]
     return sampled_clients
 
 
