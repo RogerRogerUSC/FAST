@@ -19,7 +19,6 @@ def get_data_sampler(dataset, args, idx):
             size=args.num_clients,
             rank=idx,
             alpha=args.alpha,
-            shuffle=True,
         )
         return sampler
     else:
@@ -61,6 +60,7 @@ class DirichletSampler(Sampler):
         rng = np.random.default_rng(random_seed)
         # This is a matrix with dimension "size * num_classes"
         self.full_class_prob = rng.dirichlet(alpha * np.ones(len(self.labels)), size)
+
         # To convert an non-negative square matrix with total support into a doubly stochastic matrix.
         # sk = skp.SinkhornKnopp()
         # doubly_stochastic_matrix = sk.fit(self.full_class_prob)

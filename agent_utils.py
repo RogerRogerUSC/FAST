@@ -84,22 +84,24 @@ class Agent:
         self.train_loss = Metric("train_loss")
         self.train_accuracy = Metric("train_accuracy")
 
-
     def pull_model_from_server(self, server):
+        # print("pull_model_from_server")
         if self.device != "cpu":
             # Notice the device between server and client may be different.
             with torch.device(self.device):
                 # This context manager is necessary for the clone operation.
-                set_flatten_model_back(self.model, server.flatten_params.to(self.device))
+                set_flatten_model_back(
+                    self.model, server.flatten_params.to(self.device)
+                )
         else:
             set_flatten_model_back(self.model, server.flatten_params)
 
-
     def decay_lr_in_optimizer(self, gamma):
         for g in self.optimizer.param_groups:
-            g['lr'] *= gamma
+            g["lr"] *= gamma
 
     def train_k_step(self, k):
+        # print("local update training")
         self.model.train()
         for i in range(k):
             try:
@@ -109,8 +111,8 @@ class Agent:
                 self.reset_epoch()
                 return loss, acc
             inputs, targets = inputs.to(self.device), targets.to(self.device)
-            # self.optimizer.zero_grad()
-            self.model.zero_grad()
+            self.optimizer.zero_grad()
+            # self.model.zero_grad()
             outputs = self.model(inputs)
             loss = self.criterion(outputs, targets)
             loss.backward()
@@ -120,6 +122,7 @@ class Agent:
         return self.train_loss.avg, self.train_accuracy.avg
 
     def eval(self, test_dataloader) -> tuple[float, float]:
+        print("Agent eval")
         self.model.eval()
         val_accuracy = Metric("val_accuracy")
         val_loss = Metric("val_loss")
