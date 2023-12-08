@@ -10,7 +10,7 @@ def get_parms(dataset):
     parser.add_argument("--sampling-type", type=str, default="uniform")
     parser.add_argument("--local-update", type=int, default=10, help="Local iterations")
     parser.add_argument("--num-clients", type=int, default=100, help="Total clients")
-    parser.add_argument("--round", type=int, default=500, help="Communication rounds")
+    parser.add_argument("--rounds", type=int, default=500, help="Communication rounds")
     parser.add_argument("--q", type=float, default=1, help="Probability")
     parser.add_argument("--alpha", type=float, default=0.1, help="Dirichlet parameter")
     parser.add_argument(
