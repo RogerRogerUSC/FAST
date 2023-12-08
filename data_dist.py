@@ -1,4 +1,3 @@
-import collections
 import math
 import torch
 import numpy as np
@@ -63,13 +62,13 @@ class DirichletSampler(Sampler):
         # This is a matrix with dimension "size * num_classes"
         self.full_class_prob = rng.dirichlet(alpha * np.ones(len(self.labels)), size)
         # To convert an non-negative square matrix with total support into a doubly stochastic matrix.
-        sk = skp.SinkhornKnopp()
-        doubly_stochastic_matrix = sk.fit(self.full_class_prob)
+        # sk = skp.SinkhornKnopp()
+        # doubly_stochastic_matrix = sk.fit(self.full_class_prob)
 
         # Prepare the dataset via the partition according to the prob.
         self.my_index = []
         for label in self.labels:
-            cum_prob = np.cumsum(doubly_stochastic_matrix[:, label])
+            cum_prob = np.cumsum(self.full_class_prob[:, label])
             normalized_cum_prob = (cum_prob / cum_prob[-1]).tolist()
             label_indices = self.indices_per_label[label]
             start_prob = 0 if rank == 0 else normalized_cum_prob[rank - 1]
