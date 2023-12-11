@@ -61,7 +61,7 @@ class Metric(object):
 
 
 class Agent:
-    def __init__(self, *, model, optimizer, criterion, train_loader, device="cpu"):
+    def __init__(self, *, model, optimizer, criterion, train_loader, device):
         self.model = model.to(device)
         self.criterion = criterion
         self.optimizer = optimizer
@@ -122,7 +122,6 @@ class Agent:
         return self.train_loss.avg, self.train_accuracy.avg
 
     def eval(self, test_dataloader) -> tuple[float, float]:
-        print("Agent eval")
         self.model.eval()
         val_accuracy = Metric("val_accuracy")
         val_loss = Metric("val_loss")
@@ -135,7 +134,7 @@ class Agent:
 
 
 class Server:
-    def __init__(self, *, model, criterion, device="cpu"):
+    def __init__(self, *, model, criterion, device):
         self.model = model.to(device)
         self.flatten_params = get_flatten_model_param(self.model).to(device)
         self.criterion = criterion
