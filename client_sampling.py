@@ -4,9 +4,7 @@ import random
 
 
 def client_sampling(sampling_type, clients, round):
-    if sampling_type == "arbitrary":
-        return arbitrary_client_sampling(clients)
-    elif sampling_type == "uniform":
+    if sampling_type == "uniform":
         return uniform_client_sampling(clients)
     elif sampling_type == "gamma":
         return gamma_client_sampling(clients)
@@ -24,19 +22,6 @@ def client_sampling(sampling_type, clients, round):
         return dirichlet_client_sampling(clients)
     else:
         raise Exception(f"Unsupported Sampling type: {sampling_type}. ")
-
-
-# Mix all client sampling
-def arbitrary_client_sampling(clients):
-    random_number = random.random()
-    threshold1 = 1 / 3
-    threshold2 = 2 / 3
-    if random_number < threshold1:
-        return weibull_client_sampling(clients)
-    elif random_number < threshold2:
-        return cyclic_client_sampling(clients)
-    else:
-        return beta_client_sampling(clients)
 
 
 def uniform_client_sampling(clients):
@@ -89,7 +74,7 @@ def circular_client_sampling(clients, round):
 
 
 def weibull_client_sampling(clients):
-    shape = 0.5
+    shape = 0.01
     weibull_sample_indices = np.random.weibull(shape, size=int(len(clients) * 0.1))
     norm = np.linalg.norm(weibull_sample_indices)
     weibull_sample_indices = ((weibull_sample_indices / norm) * len(clients)).astype(
