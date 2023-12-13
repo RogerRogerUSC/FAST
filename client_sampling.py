@@ -18,6 +18,10 @@ def client_sampling(sampling_type, clients, round):
         return weibull_client_sampling(clients)
     elif sampling_type == "cyclic":
         return cyclic_client_sampling(clients, round)
+    elif sampling_type == "circular":
+        return circular_client_sampling(clients, round)
+    elif sampling_type == "dirichlet":
+        return dirichlet_client_sampling(clients)
     else:
         raise Exception(f"Unsupported Sampling type: {sampling_type}. ")
 
@@ -36,11 +40,7 @@ def arbitrary_client_sampling(clients):
 
 
 def uniform_client_sampling(clients):
-    uniform_samples_indices = np.random.uniform(
-        high=len(clients), size=int(len(clients) * 1)
-    )
-    uniform_samples_indices = uniform_samples_indices.astype(int)
-    sampled_clients = [clients[i] for i in uniform_samples_indices]
+    sampled_clients = random.sample(clients, int(len(clients) * 0.1))
     return sampled_clients
 
 
@@ -54,11 +54,14 @@ def gamma_client_sampling(clients):
 
 
 def beta_client_sampling(clients):
-    alpha = 1
-    beta = 3
-    beta_samples_indices = np.random.beta(alpha, beta, size=int(len(clients) * 0.1))
-    beta_samples_indices = (beta_samples_indices * len(clients)).astype(int)
-    sampled_clients = [clients[i] for i in beta_samples_indices]
+    alpha = 20
+    beta = 20
+    beta_sample_indices = []
+    while len(beta_sample_indices) < len(clients) * 0.1:
+        idx = int(np.random.beta(alpha, beta, size=1) * len(clients))
+        if idx not in beta_sample_indices:
+            beta_sample_indices.append(idx)
+    sampled_clients = [clients[i] for i in beta_sample_indices]
     return sampled_clients
 
 
@@ -66,12 +69,22 @@ def beta_client_sampling(clients):
 def cyclic_client_sampling(clients, round):
     num_groups = 5
     length_each_group = int(len(clients) / num_groups)
-    start_index = int((round % num_groups) * len(clients) / num_groups)
+    start_index = int((round % num_groups) * length_each_group)
     sampled_clients = np.random.choice(
         clients[start_index : start_index + length_each_group],
         size=int(len(clients) * 0.1),
         replace=False,
     )
+    return sampled_clients
+
+
+def circular_client_sampling(clients, round):
+    num_groups = 10
+    length_each_group = int(len(clients) / num_groups)
+    start_index = int((round % num_groups) * length_each_group)
+    print(f"start={start_index}")
+    end_index = start_index + length_each_group
+    sampled_clients = clients[start_index:end_index]
     return sampled_clients
 
 
@@ -101,3 +114,8 @@ def markovian_client_sampling(clients):
         # Update the current state
         current_state = next_state
     return sampled_clients
+
+
+def dirichlet_client_sampling(clients):
+    alpha = 0.1
+    # To do
