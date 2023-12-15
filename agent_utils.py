@@ -96,11 +96,11 @@ class Agent:
         else:
             set_flatten_model_back(self.model, server.flatten_params)
 
-    def decay_lr_in_optimizer(self, gamma):
+    def decay_lr_in_optimizer(self, gamma: float):
         for g in self.optimizer.param_groups:
             g["lr"] *= gamma
 
-    def train_k_step(self, k):
+    def train_k_step(self, k: int):
         # print("local update training")
         self.model.train()
         for i in range(k):
@@ -111,8 +111,8 @@ class Agent:
                 self.reset_epoch()
                 return loss, acc
             inputs, targets = inputs.to(self.device), targets.to(self.device)
-            self.optimizer.zero_grad()
-            # self.model.zero_grad()
+            # self.optimizer.zero_grad()
+            self.model.zero_grad()
             outputs = self.model(inputs)
             loss = self.criterion(outputs, targets)
             loss.backward()
@@ -144,7 +144,7 @@ class Server:
 
     def avg_clients(self, clients: list[Agent]):
         self.flatten_params.zero_()
-        for client in clients:
+        for client in clients: 
             self.flatten_params += get_flatten_model_param(client.model).to(self.device)
         self.flatten_params.div_(len(clients))
         set_flatten_model_back(self.model, self.flatten_params)
@@ -161,7 +161,7 @@ class Server:
         return val_loss.avg, val_accuracy.avg
 
     # Determine the sampling method by q
-    def determine_sampling(self, q, sampling_type):
+    def determine_sampling(self, q: float, sampling_type: float) -> float:
         if "_" in sampling_type:
             sampling_methods = sampling_type.split("_")
             if random.random() < q:
@@ -173,8 +173,8 @@ class Server:
         else:
             return sampling_type
 
-    def get_num_uni_participation(self):
+    def get_num_uni_participation(self) -> int:
         return self.num_uni_participation
 
-    def get_num_arb_participation(self):
+    def get_num_arb_participation(self) -> int:
         return self.num_arb_participation
