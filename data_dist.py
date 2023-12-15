@@ -5,19 +5,19 @@ from torch.utils.data import Sampler
 from sinkhorn_knopp import sinkhorn_knopp as skp
 
 
-def get_data_sampler(dataset, args, idx):
+def get_data_sampler(dataset, args, rank):
     # Sample data with uniform distribution
-    if args.data_distribution == "uniform":
+    if args.data_dist == "uniform":
         sampler = torch.utils.data.DistributedSampler(
-            dataset, num_replicas=args.num_clients, rank=idx, shuffle=True
+            dataset, num_replicas=args.num_clients, rank=rank, shuffle=True
         )
         return sampler
     # Sample data with Dirichlet distribution
-    elif args.data_distribution == "dirichlet":
+    elif args.data_dist == "dirichlet":
         sampler = DirichletSampler(
             dataset=dataset,
             size=args.num_clients,
-            rank=idx,
+            rank=rank,
             alpha=args.alpha,
         )
         return sampler
