@@ -1,46 +1,52 @@
 import torch
 import numpy as np
 import random
+from agent_utils import Agent
+import functools
 
 
-def client_sampling(sampling_type, clients, round):
+def client_sampling(
+    sampling_type: str, clients: list[Agent], round: int
+) -> list[Agent]:
     if sampling_type == "uniform":
         return uniform_client_sampling(clients)
     elif sampling_type == "gamma":
-        return gamma_client_sampling(clients)
+        gamma_with_value = functools.partial(
+            gamma_client_sampling, shape=20, scale=0.01
+        )
+        return gamma_with_value(clients)
     elif sampling_type == "beta":
-        return beta_client_sampling(clients)
-    elif sampling_type == "markovian":
-        return markovian_client_sampling(clients)
-    elif sampling_type == "weibull":
-        return weibull_client_sampling(clients)
+        beta_with_value = functools.partial(beta_client_sampling, alpha=20, beta=1)
+        return beta_with_value(clients)
+    elif sampling_type == "markov":
+        return markov_client_sampling(clients)
+    elif sampling_type == "weibull": 
+        weibull_with_value = functools.partial(weibull_client_sampling, shape=20)
+        return weibull_with_value(clients)
     elif sampling_type == "cyclic":
         return cyclic_client_sampling(clients, round)
     elif sampling_type == "circular":
         return circular_client_sampling(clients, round)
-    elif sampling_type == "dirichlet":
-        return dirichlet_client_sampling(clients)
     else:
-        raise Exception(f"Unsupported Sampling type: {sampling_type}. ")
+        raise Exception(f"Unsupported Sampling Type: {sampling_type}. ")
 
 
-def uniform_client_sampling(clients):
+def uniform_client_sampling(clients: list[Agent]) -> list[Agent]:
     sampled_clients = random.sample(clients, int(len(clients) * 0.1))
     return sampled_clients
 
 
-def gamma_client_sampling(clients):
-    shape = 1
-    gamma_samples_indices = np.random.gamma(shape, size=int(len(clients) * 0.1))
-    norm = np.linalg.norm(gamma_samples_indices)
-    gamma_samples_indices = ((gamma_samples_indices / norm) * len(clients)).astype(int)
-    sampled_clients = [clients[i] for i in gamma_samples_indices]
+def gamma_client_sampling(clients, shape, scale):
+    gamma_sample_indices = []
+    while len(gamma_sample_indices) < len(clients) * 0.1:
+        idx = int(np.random.gamma(shape=shape, scale=scale, size=1) * len(clients))
+        if (idx not in gamma_sample_indices) and (idx < len(clients)):
+            gamma_sample_indices.append(idx)
+    sampled_clients = [clients[i] for i in gamma_sample_indices]
     return sampled_clients
 
 
-def beta_client_sampling(clients):
-    alpha = 20
-    beta = 20
+def beta_client_sampling(clients, alpha, beta):
     beta_sample_indices = []
     while len(beta_sample_indices) < len(clients) * 0.1:
         idx = int(np.random.beta(alpha, beta, size=1) * len(clients))
@@ -50,9 +56,8 @@ def beta_client_sampling(clients):
     return sampled_clients
 
 
-# Cyclic client participation: Divide all clients into 5 groups.
 def cyclic_client_sampling(clients, round):
-    num_groups = 5
+    num_groups = 4
     length_each_group = int(len(clients) / num_groups)
     start_index = int((round % num_groups) * length_each_group)
     sampled_clients = np.random.choice(
@@ -67,40 +72,20 @@ def circular_client_sampling(clients, round):
     num_groups = 10
     length_each_group = int(len(clients) / num_groups)
     start_index = int((round % num_groups) * length_each_group)
-    print(f"start={start_index}")
     end_index = start_index + length_each_group
     sampled_clients = clients[start_index:end_index]
     return sampled_clients
 
 
-def weibull_client_sampling(clients):
-    shape = 0.01
-    weibull_sample_indices = np.random.weibull(shape, size=int(len(clients) * 0.1))
-    norm = np.linalg.norm(weibull_sample_indices)
-    weibull_sample_indices = ((weibull_sample_indices / norm) * len(clients)).astype(
-        int
-    )
+def weibull_client_sampling(clients, shape):
+    weibull_sample_indices = []
+    while len(weibull_sample_indices) < len(clients) * 0.1:
+        idx = int(np.random.weibull(a=shape, size=1)/1.2 * len(clients))
+        if (idx not in weibull_sample_indices) and (idx < len(clients)):
+            weibull_sample_indices.append(idx)
     sampled_clients = [clients[i] for i in weibull_sample_indices]
     return sampled_clients
 
 
-def markovian_client_sampling(clients):
-    transition_matrix = torch.tensor([[0.3, 0.7], [0.6, 0.4]])
-    initial_distribution = torch.tensor([0.1, 0.9])
-    current_state = torch.distributions.Categorical(initial_distribution).sample()
-    sampled_clients = []
-    for _ in range(int(len(clients) * 0.1)):
-        # Generate the next state based on the current state
-        next_state = torch.distributions.Categorical(
-            transition_matrix[current_state]
-        ).sample()
-        # Append the current state as the sampled result
-        sampled_clients.append(clients[next_state.item()])
-        # Update the current state
-        current_state = next_state
-    return sampled_clients
-
-
-def dirichlet_client_sampling(clients):
-    alpha = 0.1
-    # To do
+def markov_client_sampling(clients):
+    return
