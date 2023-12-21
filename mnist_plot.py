@@ -9,7 +9,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description="MNIST Plot")
 parser.add_argument(
-    "--sampling_type",
+    "--sampling-type",
     type=str,
     default="beta",
 )
