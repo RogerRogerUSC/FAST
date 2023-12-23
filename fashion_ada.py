@@ -103,9 +103,11 @@ writer = SummaryWriter(
 )
 
 
-list_q = []
+list_q = [float]
 q = 0
+v1, v2, v3, v4, v5 = 0, 0, 0, 0, 0
 delta = 0
+gamma = 5
 with tqdm(total=args.rounds, desc=f"Training:") as t:
     for round in range(0, args.rounds):
         sampled_clients = client_sampling(
@@ -130,14 +132,31 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             print(f"Evaluation(round {round}): {eval_loss=:.4f} {eval_acc=:.3f}")
             log(round, eval_acc)
             # Adaptive q
-            delta = delta - eval_acc
-            if delta <= 0.01 and q == 0:
-                q = 0.5
+            # delta = delta - eval_acc
+            # if delta <= 0.01 and q == 0:
+            #     q = 1
+            # else:
+            #     q = min(1, max(0, q + 5 * delta))
+            # list_q.append(q)
+            # v5 = v4
+            # v4 = v3
+            v3 = v2
+            v2 = v1
+            v1 = eval_acc
+            avg = (v1 + v2 + v3) / 3
+            delta = delta - avg
+            print(f"delta={delta}")
+            # if delta <= 0.01 and q == 0 and round != 0:
+            #     q = 0.5
+            # else:
+            q = min(1, max(0, q + gamma * delta))
+
+            if 0 < q < 1:
+                list_q.append(q)
             else:
-                q = min(1, max(0, q + 3 * delta))
-            list_q.append(q)
+                list_q.append(q)
             print(f"q={q}")
-            delta = eval_acc
+            delta = avg
 
 print(f"{list_q}")
 print(

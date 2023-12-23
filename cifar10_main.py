@@ -80,7 +80,7 @@ train_dataset_part = CIFAR10Partitioner(
 # Create clients and server
 clients = []
 for idx in range(args.num_clients):
-    model = CNN_CIFAR10().to(device)
+    model = ResNet18().to(device)
     criterion = nn.CrossEntropyLoss()
     # criterion = nn.NLLLoss()
     optimizer = optim.SGD(
@@ -105,7 +105,7 @@ for idx in range(args.num_clients):
             device=device,
         )
     )
-server = Server(model=CNN_CIFAR10(), criterion=criterion, device=device)
+server = Server(model=ResNet18(), criterion=criterion, device=device)
 
 
 writer = SummaryWriter(

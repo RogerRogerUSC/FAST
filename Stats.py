@@ -3,8 +3,8 @@ import os
 import pandas as pd
 
 dataset = "fashion"
-alpha = "0.1"
-sample_type = "weibull"
+alpha = "0.05"
+sample_type = "gamma"
 
 
 # filenames = os.listdir("results/"+dataset+"/alpha_"+str(alpha)+"/")
