@@ -2,7 +2,7 @@ import math
 import torch
 import numpy as np
 from torch.utils.data import Sampler
-from sinkhorn_knopp import sinkhorn_knopp as skp
+# from sinkhorn_knopp import sinkhorn_knopp as skp
 
 
 def get_data_sampler(dataset, args, rank):

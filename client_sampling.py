@@ -1,4 +1,3 @@
-import torch
 import numpy as np
 import random
 from agent_utils import Agent
@@ -12,7 +11,7 @@ def client_sampling(
         return uniform_client_sampling(clients)
     elif sampling_type == "gamma":
         gamma_with_value = functools.partial(
-            gamma_client_sampling, shape=20, scale=0.01
+            gamma_client_sampling, shape=10, scale=0.01
         )
         return gamma_with_value(clients)
     elif sampling_type == "beta":
@@ -20,7 +19,7 @@ def client_sampling(
         return beta_with_value(clients)
     elif sampling_type == "markov":
         return markov_client_sampling(clients)
-    elif sampling_type == "weibull": 
+    elif sampling_type == "weibull":
         weibull_with_value = functools.partial(weibull_client_sampling, shape=20)
         return weibull_with_value(clients)
     elif sampling_type == "cyclic":
@@ -80,7 +79,7 @@ def circular_client_sampling(clients, round):
 def weibull_client_sampling(clients, shape):
     weibull_sample_indices = []
     while len(weibull_sample_indices) < len(clients) * 0.1:
-        idx = int(np.random.weibull(a=shape, size=1)/1.2 * len(clients))
+        idx = int(np.random.weibull(a=shape, size=1) / 1.2 * len(clients))
         if (idx not in weibull_sample_indices) and (idx < len(clients)):
             weibull_sample_indices.append(idx)
     sampled_clients = [clients[i] for i in weibull_sample_indices]

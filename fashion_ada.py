@@ -10,15 +10,13 @@ from agent_utils import Agent, Server
 from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
-from local_update import local_update_selected_clients
+from agent_utils import local_update_selected_clients
 from config import get_parms
 from fedlab.utils.dataset.partition import FMNISTPartitioner
-from fedlab.models.cnn import CNN_FEMNIST, CNN_MNIST
 from models.cnn import CNN_FMNIST
 
 
 args = get_parms("Fashion-MNIST").parse_args()
-print(args)
 use_cuda = not args.no_cuda and torch.cuda.is_available()
 use_mps = not args.no_mps and torch.backends.mps.is_available()
 
@@ -35,7 +33,7 @@ else:
     print("Using cpu. ")
 
 
-kwargs = {"num_workers": 1, "pin_memory": True} if use_cuda else {}
+kwargs = {"num_workers": 2, "pin_memory": True} if use_cuda else {}
 current_loc = os.path.dirname(os.path.abspath(__file__))
 transform = transforms.Compose(
     [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
@@ -61,7 +59,6 @@ train_dataset_partition = FMNISTPartitioner(
     targets=train_dataset.targets,
     num_clients=args.num_clients,
     partition="noniid-labeldir",
-    # partition = "iid",
     dir_alpha=args.alpha,
     seed=args.seed,
 )
@@ -71,13 +68,10 @@ clients = []
 for idx in range(args.num_clients):
     model = CNN_FMNIST()
     criterion = nn.CrossEntropyLoss()
-    # criterion = nn.NLLLoss()
-    # optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    # sampler = get_data_sampler(dataset=train_dataset, args=args, idx=idx)
-    # train_loader = torch.utils.data.DataLoader(
-    #     train_dataset, batch_size=args.batch_size, sampler=sampler, **kwargs
-    # )
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        optimizer, milestones=[20000], gamma=0.1
+    )
     train_loader = torch.utils.data.DataLoader(
         dataset=torch.utils.data.Subset(train_dataset, train_dataset_partition[idx]),
         batch_size=args.train_batch_size,
@@ -90,10 +84,11 @@ for idx in range(args.num_clients):
             criterion=criterion,
             train_loader=train_loader,
             device=device,
+            scheduler=scheduler,
         )
     )
 
-server = Server(model=CNN_FMNIST(), criterion=criterion, device=device)
+server = Server(model=CNN_FMNIST(), criterion=nn.CrossEntropyLoss(), device=device)
 
 
 writer = SummaryWriter(
@@ -103,11 +98,10 @@ writer = SummaryWriter(
 )
 
 
-list_q = [float]
 q = 0
-v1, v2, v3, v4, v5 = 0, 0, 0, 0, 0
+v = 0
 delta = 0
-gamma = 5
+gamma = 7
 with tqdm(total=args.rounds, desc=f"Training:") as t:
     for round in range(0, args.rounds):
         sampled_clients = client_sampling(
@@ -118,9 +112,6 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             clients=sampled_clients, server=server, local_update=args.local_update
         )
         server.avg_clients(sampled_clients)
-        # Decay the learning rate every M rounds
-        # if (round+1) in [500]:
-        #     [client.decay_lr_in_optimizer(gamma=0.1) for client in clients]
         writer.add_scalar("Loss/train", train_loss, round)
         writer.add_scalar("Accuracy/train", train_acc, round)
         t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
@@ -131,34 +122,12 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             writer.add_scalar("Accuracy/test", eval_acc, round)
             print(f"Evaluation(round {round}): {eval_loss=:.4f} {eval_acc=:.3f}")
             log(round, eval_acc)
-            # Adaptive q
-            # delta = delta - eval_acc
-            # if delta <= 0.01 and q == 0:
-            #     q = 1
-            # else:
-            #     q = min(1, max(0, q + 5 * delta))
-            # list_q.append(q)
-            # v5 = v4
-            # v4 = v3
-            v3 = v2
-            v2 = v1
-            v1 = eval_acc
-            avg = (v1 + v2 + v3) / 3
-            delta = delta - avg
-            print(f"delta={delta}")
-            # if delta <= 0.01 and q == 0 and round != 0:
-            #     q = 0.5
-            # else:
-            q = min(1, max(0, q + gamma * delta))
 
-            if 0 < q < 1:
-                list_q.append(q)
-            else:
-                list_q.append(q)
-            print(f"q={q}")
-            delta = avg
+        v = train_acc
+        delta = delta - v
+        q = min(1, max(0, q + gamma * delta))
+        delta = v
 
-print(f"{list_q}")
 print(
     "Number of uniform participation rounds: " + str(server.get_num_uni_participation())
 )

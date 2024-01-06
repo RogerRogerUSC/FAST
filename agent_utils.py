@@ -1,6 +1,7 @@
 import torch
-import torch.nn as nn
+import numpy as np
 import random
+from torch.utils.data import Dataset
 
 
 def set_all_param_zero(model):
@@ -61,10 +62,11 @@ class Metric(object):
 
 
 class Agent:
-    def __init__(self, *, model, optimizer, criterion, train_loader, device):
+    def __init__(self, *, model, optimizer, scheduler, criterion, train_loader, device):
         self.model = model.to(device)
         self.criterion = criterion
         self.optimizer = optimizer
+        self.scheduler = scheduler
         self.train_loader = train_loader
         self.train_loss = Metric("train_loss")
         self.train_accuracy = Metric("train_accuracy")
@@ -133,6 +135,15 @@ class Agent:
         return val_loss.avg, val_accuracy.avg
 
 
+def local_update_selected_clients(clients: list[Agent], server, local_update):
+    train_loss_sum, train_acc_sum = 0, 0
+    for client in clients:
+        train_loss, train_acc = client.train_k_step(k=local_update)
+        train_loss_sum += train_loss
+        train_acc_sum += train_acc
+    return train_loss_sum / len(clients), train_acc_sum / len(clients)
+
+
 class Server:
     def __init__(self, *, model, criterion, device):
         self.model = model.to(device)
@@ -144,7 +155,7 @@ class Server:
 
     def avg_clients(self, clients: list[Agent]):
         self.flatten_params.zero_()
-        for client in clients: 
+        for client in clients:
             self.flatten_params += get_flatten_model_param(client.model).to(self.device)
         self.flatten_params.div_(len(clients))
         set_flatten_model_back(self.model, self.flatten_params)
@@ -178,3 +189,81 @@ class Server:
 
     def get_num_arb_participation(self) -> int:
         return self.num_arb_participation
+
+
+class DatasetSplit(Dataset):
+    def __init__(self, dataset, idxs):
+        self.dataset = dataset
+        self.idxs = list(idxs)
+
+    def __len__(self):
+        return len(self.idxs)
+
+    def __getitem__(self, item):
+        image, label = self.dataset[self.idxs[item]]
+        return image, label
+
+
+def partition(dataset, n_nodes, data_dirichlet_alpha):
+    dict_users = {i: np.array([], dtype="int64") for i in range(n_nodes)}
+
+    if isinstance(dataset.targets, torch.Tensor):
+        labels = dataset.targets.numpy()
+    else:
+        labels = np.array(dataset.targets)
+
+    min_label = min(labels)
+    max_label = max(labels)
+    num_labels = max_label - min_label + 1
+
+    label_distributions_each_node = np.random.dirichlet(
+        data_dirichlet_alpha * np.ones(num_labels), n_nodes
+    )
+    sum_prob_per_label = np.sum(label_distributions_each_node, axis=0)
+
+    indices_per_label = []
+    for i in range(min_label, max_label + 1):
+        indices_per_label.append([j for j in range(len(labels)) if labels[j] == i])
+
+    start_index_per_label = np.zeros(num_labels, dtype="int64")
+    for n in range(n_nodes):
+        for i in range(num_labels):
+            end_index = int(
+                np.round(
+                    len(indices_per_label[i])
+                    * np.sum(label_distributions_each_node[: n + 1, i])
+                    / sum_prob_per_label[i]
+                )
+            )
+            dict_users[n] = np.concatenate(
+                (
+                    dict_users[n],
+                    np.array(
+                        indices_per_label[i][start_index_per_label[i] : end_index],
+                        dtype="int64",
+                    ),
+                ),
+                axis=0,
+            )
+            start_index_per_label[i] = end_index
+
+    actual_label_distributions_each_node = [
+        np.array(
+            [
+                len([j for j in labels[dict_users[n]] if j == i])
+                for i in range(min_label, max_label + 1)
+            ],
+            dtype="int64",
+        )
+        / len(dict_users[n])
+        for n in range(n_nodes)
+    ]
+
+    return dict_users, actual_label_distributions_each_node, num_labels
+
+
+def data_each_node(data_train, n_nodes, data_dirichlet_alpha):
+    dict_users, actual_label_distributions_each_node, num_labels = partition(
+        data_train, n_nodes, data_dirichlet_alpha
+    )
+    return dict_users

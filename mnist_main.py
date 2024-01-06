@@ -10,16 +10,14 @@ from agent_utils import Agent, Server
 from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
-from data_dist import get_data_sampler
 from models.cnn import CNN_Mnist
-from local_update import local_update_selected_clients
+from agent_utils import local_update_selected_clients
 from config import get_parms
 from fedlab.utils.dataset.partition import MNISTPartitioner
 from fedlab.utils.dataset import functional as F
 
 
 args = get_parms("MNIST").parse_args()
-print(args)
 use_cuda = not args.no_cuda and torch.cuda.is_available()
 use_mps = not args.no_mps and torch.backends.mps.is_available()
 
@@ -65,7 +63,6 @@ train_dataset_partition = MNISTPartitioner(
     seed=args.seed,
 )
 
-sum = 0
 
 # Create clients and server
 clients = []
@@ -92,17 +89,13 @@ for idx in range(args.num_clients):
             device=device,
         )
     )
-    sum += len(clients[idx].train_loader)
 
-print(f"{sum}")
 server = Server(model=CNN_Mnist(), criterion=criterion, device=device)
 
 
 writer = SummaryWriter(
     os.path.join(
-        "output",
-        "mnist",
-        f"{args}+{datetime.now().strftime('%m_%d-%H-%M-%S')}"
+        "output", "mnist", f"{args}+{datetime.now().strftime('%m_%d-%H-%M-%S')}"
     )
 )
 
@@ -123,7 +116,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         # Evaluation and logging
         writer.add_scalar("Loss/train", train_loss, round)
         writer.add_scalar("Accuracy/train", train_acc, round)
-        if round % 5 == 0:
+        if round % 10 == 0:
             eval_loss, eval_acc = server.eval(test_loader)
             writer.add_scalar("Loss/test", eval_loss, round)
             writer.add_scalar("Accuracy/test", eval_acc, round)

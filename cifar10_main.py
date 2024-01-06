@@ -6,21 +6,16 @@ from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
-from agent_utils import Agent, Server
+from agent_utils import Agent, Server, DatasetSplit, data_each_node
 from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
-from data_dist import get_data_sampler
 from config import get_parms
-from models.cnn import CNN_Cifar10
-from models.resnet import ResNet34, ResNet18
-from local_update import local_update_selected_clients
-from fedlab.models.cnn import CNN_CIFAR10, AlexNet_CIFAR10
-from FedLab.fedlab.contrib.dataset.partitioned_cifar10 import CIFAR10Partitioner
+from models.cnn import CNN_Cifar10_2
+from agent_utils import local_update_selected_clients
 
 
 args = get_parms("CIFAR10").parse_args()
-print(args)
 use_cuda = not args.no_cuda and torch.cuda.is_available()
 use_mps = not args.no_mps and torch.backends.mps.is_available()
 torch.manual_seed(args.seed)
@@ -35,13 +30,15 @@ else:
     device = torch.device("cpu")
     print("===cpu")
 
-kwargs = {"num_workers": 1, "pin_memory": True, "shuffle": True} if use_cuda else {}
+kwargs = {"num_workers": 2, "pin_memory": True, "shuffle": True} if use_cuda else {}
 current_loc = os.path.dirname(os.path.abspath(__file__))
 
 transform = transforms.Compose(
     [
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ]
 )
 
@@ -63,38 +60,31 @@ test_dataset = datasets.CIFAR10(
 test_loader = torch.utils.data.DataLoader(
     test_dataset,
     batch_size=args.test_batch_size,
-    shuffle=False,
     **kwargs,
 )
 
-train_dataset_part = CIFAR10Partitioner(
-    targets=train_dataset.targets,
-    num_clients=args.num_clients,
-    balance=True,
-    partition="dirichlet",
-    dir_alpha=args.alpha,
-    seed=args.seed,
-    verbose=False
-)
-
 # Create clients and server
+dict_users = data_each_node(train_dataset, args.num_clients, args.alpha)
 clients = []
 for idx in range(args.num_clients):
-    model = ResNet18().to(device)
+    if use_cuda:
+        gpu_idx = idx % torch.cuda.device_count()
+        device = torch.device(f"cuda:{gpu_idx}")
+
+    model = CNN_Cifar10_2().to(device)
     criterion = nn.CrossEntropyLoss()
-    # criterion = nn.NLLLoss()
     optimizer = optim.SGD(
         model.parameters(),
         lr=args.lr,
         momentum=0.9,
     )
-    # optimizer = optim.Adam(params=model.parameters(), lr=args.lr)
-    # optimizer = optim.Adadelta(params=model.parameters(), lr=args.lr)
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        optimizer, milestones=[5000], gamma=0.1
+    )
     train_loader = torch.utils.data.DataLoader(
-        dataset=torch.utils.data.Subset(train_dataset, train_dataset_part[idx]),
+        DatasetSplit(train_dataset, dict_users[idx]),
         batch_size=args.train_batch_size,
-        **kwargs,
+        shuffle=True,
     )
     clients.append(
         Agent(
@@ -103,9 +93,10 @@ for idx in range(args.num_clients):
             criterion=criterion,
             train_loader=train_loader,
             device=device,
+            scheduler=scheduler,
         )
     )
-server = Server(model=ResNet18(), criterion=criterion, device=device)
+server = Server(model=CNN_Cifar10_2(), criterion=nn.CrossEntropyLoss(), device=device)
 
 
 writer = SummaryWriter(
@@ -128,10 +119,6 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             clients=sampled_clients, server=server, local_update=args.local_update
         )
         server.avg_clients(sampled_clients)
-        # Decay the learning rate every M rounds
-        if (round+1) % 500 == 0:
-            [client.decay_lr_in_optimizer(gamma=0.5) for client in clients]
-
         # Evaluation and logging
         writer.add_scalar("Loss/train", train_loss, round)
         writer.add_scalar("Accuracy/train", train_acc, round)
@@ -141,6 +128,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             writer.add_scalar("Accuracy/test", eval_acc, round)
             print(f"Evaluation(round {round}): {eval_loss=:.3f} {eval_acc=:.3f}")
             log(round, eval_acc)
+            print(args)
 
         # Tqdm update
         t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})

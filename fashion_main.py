@@ -10,15 +10,13 @@ from agent_utils import Agent, Server
 from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
-from local_update import local_update_selected_clients
+from agent_utils import local_update_selected_clients
 from config import get_parms
 from fedlab.utils.dataset.partition import FMNISTPartitioner
-from fedlab.models.cnn import CNN_FEMNIST, CNN_MNIST
 from models.cnn import CNN_FMNIST
 
 
 args = get_parms("Fashion-MNIST").parse_args()
-print(args)
 use_cuda = not args.no_cuda and torch.cuda.is_available()
 use_mps = not args.no_mps and torch.backends.mps.is_available()
 
@@ -71,13 +69,10 @@ clients = []
 for idx in range(args.num_clients):
     model = CNN_FMNIST()
     criterion = nn.CrossEntropyLoss()
-    # criterion = nn.NLLLoss()
-    # optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    # sampler = get_data_sampler(dataset=train_dataset, args=args, idx=idx)
-    # train_loader = torch.utils.data.DataLoader(
-    #     train_dataset, batch_size=args.batch_size, sampler=sampler, **kwargs
-    # )
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(
+        optimizer, milestones=[20000], gamma=0.1
+    )
     train_loader = torch.utils.data.DataLoader(
         dataset=torch.utils.data.Subset(train_dataset, train_dataset_partition[idx]),
         batch_size=args.train_batch_size,
@@ -90,6 +85,7 @@ for idx in range(args.num_clients):
             criterion=criterion,
             train_loader=train_loader,
             device=device,
+            scheduler=scheduler,
         )
     )
 
@@ -112,9 +108,6 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             clients=sampled_clients, server=server, local_update=args.local_update
         )
         server.avg_clients(sampled_clients)
-        # Decay the learning rate every M rounds
-        # if (round+1) in [500]: 
-        #     [client.decay_lr_in_optimizer(gamma=0.1) for client in clients]
         writer.add_scalar("Loss/train", train_loss, round)
         writer.add_scalar("Accuracy/train", train_acc, round)
         t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
