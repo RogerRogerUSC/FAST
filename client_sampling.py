@@ -10,17 +10,15 @@ def client_sampling(
     if sampling_type == "uniform":
         return uniform_client_sampling(clients)
     elif sampling_type == "gamma":
-        gamma_with_value = functools.partial(
-            gamma_client_sampling, shape=10, scale=0.01
-        )
+        gamma_with_value = functools.partial(gamma_client_sampling, shape=5, scale=0.05)
         return gamma_with_value(clients)
     elif sampling_type == "beta":
-        beta_with_value = functools.partial(beta_client_sampling, alpha=20, beta=1)
+        beta_with_value = functools.partial(beta_client_sampling, alpha=1, beta=10)
         return beta_with_value(clients)
     elif sampling_type == "markov":
         return markov_client_sampling(clients)
     elif sampling_type == "weibull":
-        weibull_with_value = functools.partial(weibull_client_sampling, shape=20)
+        weibull_with_value = functools.partial(weibull_client_sampling, shape=10)
         return weibull_with_value(clients)
     elif sampling_type == "cyclic":
         return cyclic_client_sampling(clients, round)
