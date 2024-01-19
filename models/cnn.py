@@ -2,24 +2,25 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class CNN_Mnist(nn.Module):
     def __init__(self):
         super(CNN_Mnist, self).__init__()
-        self.conv1 = nn.Sequential(         
+        self.conv1 = nn.Sequential(
             nn.Conv2d(
-                in_channels=1,              
-                out_channels=16,            
-                kernel_size=5,              
-                stride=1,                   
-                padding=2,                  
-            ),                              
-            nn.ReLU(),                      
-            nn.MaxPool2d(kernel_size=2),    
+                in_channels=1,
+                out_channels=16,
+                kernel_size=5,
+                stride=1,
+                padding=2,
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2),
         )
-        self.conv2 = nn.Sequential(         
-            nn.Conv2d(16, 32, 5, 1, 2),     
-            nn.ReLU(),                      
-            nn.MaxPool2d(2),                
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(16, 32, 5, 1, 2),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
         )
         # fully connected layer, output 10 classes
         self.out = nn.Linear(32 * 7 * 7, 10)
@@ -28,9 +29,10 @@ class CNN_Mnist(nn.Module):
         x = self.conv1(x)
         x = self.conv2(x)
         # flatten the output of conv2 to (batch_size, 32 * 7 * 7)
-        x = x.view(x.size(0), -1)       
+        x = x.view(x.size(0), -1)
         output = self.out(x)
-        return output   
+        return output
+
 
 # class CNN_Mnist(nn.Module):
 #     def __init__(self):
@@ -51,9 +53,9 @@ class CNN_Mnist(nn.Module):
 #         return x
 
 
-class CNN_Cifar10(nn.Module):
+class CNN_Cifar10_1(nn.Module):
     def __init__(self):
-        super(CNN_Cifar10, self).__init__()
+        super(CNN_Cifar10_1, self).__init__()
         self.conv_layer = nn.Sequential(
             # Conv Layer block 1
             nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1),
@@ -94,11 +96,11 @@ class CNN_Cifar10(nn.Module):
         x = self.fc_layer(x)
         x = F.log_softmax(x, dim=1)
         return x
-    
 
-class CNN_Cifar10(nn.Module):
+
+class CNN_Cifar10_2(nn.Module):
     def __init__(self):
-        super(CNN_Cifar10, self).__init__()
+        super(CNN_Cifar10_2, self).__init__()
         # convolutional layer (sees 32x32x3 image tensor)
         self.conv1 = nn.Conv2d(3, 16, 3, padding=1)
         # convolutional layer (sees 16x16x16 tensor)
@@ -130,71 +132,7 @@ class CNN_Cifar10(nn.Module):
         # add 2nd hidden layer, with relu activation function
         x = self.fc2(x)
         return x
-        
 
-
-
-
-
-# class CNN_Fashion(nn.Module): 
-#     def __init__(self):
-#         super(CNN_Fashion, self).__init__()
-#         self.layer1 = nn.Sequential(
-#             nn.Conv2d(1, 16, kernel_size=5, stride=1, padding=2),
-#             nn.BatchNorm2d(16),
-#             nn.ReLU(),
-#             nn.MaxPool2d(kernel_size=2, stride=2))
-#         self.layer2 = nn.Sequential(
-#             nn.Conv2d(16, 32, kernel_size=5, stride=1, padding=2),
-#             nn.BatchNorm2d(32),
-#             nn.ReLU(),
-#             nn.MaxPool2d(kernel_size=2, stride=2))
-#         self.fc = nn.Linear(7 * 7 * 32, 10)
-#         self.dropout = nn.Dropout(0.25)
-        
-
-#     def forward(self, x):
-#         out = self.layer1(x)
-#         out = self.layer2(out)
-#         out = out.reshape(out.size(0), -1)
-#         out = self.dropout(out)
-#         out = self.fc(out)
-#         return F.log_softmax(out, dim=1)
-
-# class CNN_Fashion(nn.Module):
-    
-#     def __init__(self):
-#         super(CNN_Fashion, self).__init__()
-        
-#         self.layer1 = nn.Sequential(
-#             nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1),
-#             nn.BatchNorm2d(32),
-#             nn.ReLU(),
-#             nn.MaxPool2d(kernel_size=2, stride=2)
-#         )
-        
-#         self.layer2 = nn.Sequential(
-#             nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3),
-#             nn.BatchNorm2d(64),
-#             nn.ReLU(),
-#             nn.MaxPool2d(2)
-#         )
-        
-#         self.fc1 = nn.Linear(in_features=64*6*6, out_features=600)
-#         self.drop = nn.Dropout2d(0.25)
-#         self.fc2 = nn.Linear(in_features=600, out_features=120)
-#         self.fc3 = nn.Linear(in_features=120, out_features=10)
-        
-#     def forward(self, x):
-#         out = self.layer1(x)
-#         out = self.layer2(out)
-#         out = out.view(out.size(0), -1)
-#         out = self.fc1(out)
-#         out = self.drop(out)
-#         out = self.fc2(out)
-#         out = self.fc3(out)
-        
-#         return out
 
 class CNN_FMNIST(nn.Module):
     def __init__(self, only_digits=False):
@@ -222,4 +160,3 @@ class CNN_FMNIST(nn.Module):
         x = self.dropout_2(x)
         x = self.linear_2(x)
         return x
-    
