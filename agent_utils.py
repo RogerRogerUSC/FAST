@@ -143,7 +143,6 @@ def local_update_selected_clients(clients: list[Agent], server, local_update):
         train_acc_sum += train_acc
     return train_loss_sum / len(clients), train_acc_sum / len(clients)
 
-
 class Server:
     def __init__(self, *, model, criterion, device):
         self.model = model.to(device)

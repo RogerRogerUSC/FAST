@@ -27,4 +27,7 @@ def get_parms(dataset):
     )
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--seed", type=int, default=365, help="random seed")
+    parser.add_argument("--algo", type=str, default="fedavg", help="[fedavg]")
+    parser.add_argument("--adaptive", type=bool, default=False)
+    parser.add_argument("--num-workers", type=int, default=2)
     return parser
