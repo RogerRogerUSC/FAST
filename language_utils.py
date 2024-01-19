@@ -1,18 +1,14 @@
-"""Utils for language models."""
-
 import re
 import numpy as np
 import json
 
 
-# ------------------------
 # utils for shakespeare dataset
 
 ALL_LETTERS = (
     "\n !\"&'(),-.0123456789:;>?ABCDEFGHIJKLMNOPQRSTUVWXYZ[]abcdefghijklmnopqrstuvwxyz}"
 )
 NUM_LETTERS = len(ALL_LETTERS)
-# print(NUM_LETTERS)
 
 
 def _one_hot(index, size):

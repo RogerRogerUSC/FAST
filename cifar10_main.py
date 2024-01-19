@@ -2,6 +2,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import csv
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 import torchvision.datasets as datasets
@@ -12,7 +13,10 @@ from client_sampling import client_sampling
 from log import log
 from config import get_parms
 from models.cnn import CNN_Cifar10_2
-from agent_utils import local_update_selected_clients
+from agent_utils import (
+    local_update_selected_clients,
+    local_update_selected_clients_fedprox,
+)
 
 
 args = get_parms("CIFAR10").parse_args()
@@ -30,7 +34,11 @@ else:
     device = torch.device("cpu")
     print("===cpu")
 
-kwargs = {"num_workers": 2, "pin_memory": True, "shuffle": True} if use_cuda else {}
+kwargs = (
+    {"num_workers": args.num_workers, "pin_memory": True, "shuffle": True}
+    if use_cuda
+    else {}
+)
 current_loc = os.path.dirname(os.path.abspath(__file__))
 
 transform = transforms.Compose(
@@ -105,6 +113,12 @@ writer = SummaryWriter(
     )
 )
 
+
+list_q = []
+q = 0
+v = 0
+delta = 0
+gamma = 7
 with tqdm(total=args.rounds, desc=f"Training:") as t:
     for round in range(0, args.rounds):
         # Sample clients
@@ -115,13 +129,20 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         )
         # Train
         [client.pull_model_from_server(server) for client in sampled_clients]
-        train_loss, train_acc = local_update_selected_clients(
-            clients=sampled_clients, server=server, local_update=args.local_update
-        )
+        if args.algo == "fedavg":
+            train_loss, train_acc = local_update_selected_clients(
+                clients=sampled_clients, server=server, local_update=args.local_update
+            )
+        elif args.algo == "fedprox":
+            train_loss, train_acc = local_update_selected_clients_fedprox(
+                clients=sampled_clients, server=server, local_update=args.local_update
+            )
         server.avg_clients(sampled_clients)
         # Evaluation and logging
         writer.add_scalar("Loss/train", train_loss, round)
         writer.add_scalar("Accuracy/train", train_acc, round)
+        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
+        t.update(1)
         if round % 10 == 0:
             eval_loss, eval_acc = server.eval(test_loader)
             writer.add_scalar("Loss/test", eval_loss, round)
@@ -129,23 +150,34 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             print(f"Evaluation(round {round}): {eval_loss=:.3f} {eval_acc=:.3f}")
             log(round, eval_acc)
             print(args)
+            # Adaptive FAST
+        if args.adaptive == True:
+            v = train_acc
+            delta = delta - v
+            q = min(1, max(0, q + gamma * delta))
+            list_q.append({"Step": round, "Value": q})
+            delta = v
 
-        # Tqdm update
-        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
-        t.update(1)
 
-
-print(
-    "Number of uniform participation rounds: " + str(server.get_num_uni_participation())
-)
-print(
-    "Number of arbitrary participation rounds: "
-    + str(server.get_num_arb_participation())
-)
-print("Ratio=" + str(server.get_num_arb_participation() / args.rounds))
+print(f"Number of uniform participation rounds: {server.get_num_uni_participation()}")
+print(f"Number of arbitrary participation rounds: {server.get_num_arb_participation()}")
+print(f"Ratio={server.get_num_arb_participation() / args.rounds}")
 
 eval_loss, eval_acc = server.eval(test_loader)
 writer.add_scalar("Loss/test", eval_loss, round)
 writer.add_scalar("Accuracy/test", eval_acc, round)
 print(f"Evaluation(final round): {eval_loss=:.3f} {eval_acc=:.3f}")
 writer.close()
+
+# save the figure of changing in q
+if args.adaptive == True:
+    fields = ["Step", "Value"]
+    with open(
+        f"results/q/list_cifar10_q_{args.sampling_type},alpha={args.alpha},lambda={gamma}.csv",
+        "w",
+        newline="",
+    ) as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fields)
+        writer.writeheader()
+        for data in list_q:
+            writer.writerow(data)
