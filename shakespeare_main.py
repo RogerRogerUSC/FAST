@@ -93,8 +93,8 @@ server = Server(model=CharLSTM(), criterion=nn.CrossEntropyLoss(), device=device
 writer = SummaryWriter(
     os.path.join(
         "output",
-        "mnist",
-        f"alpha={args.alpha}+{args.sampling_type}+q={args.q}+num_clients={args.num_clients}+lr={args.lr}",
+        "shakespeare",
+        f"{args.sampling_type},alpha={args.alpha},q={args.q},{args.algo},ada={args.adaptive},nc={args.num_clients},rounds={args.rounds},lr={args.lr},"
     )
 )
 

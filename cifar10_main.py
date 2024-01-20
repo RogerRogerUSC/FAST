@@ -109,7 +109,9 @@ server = Server(model=CNN_Cifar10_2(), criterion=nn.CrossEntropyLoss(), device=d
 
 writer = SummaryWriter(
     os.path.join(
-        "output", "cifar_test", f"{args}+{datetime.now().strftime('%m_%d-%H-%M')}"
+        "output",
+        "cifar_test",
+        f"{args.sampling_type},alpha={args.alpha},q={args.q},{args.algo},ada={args.adaptive},nc={args.num_clients},rounds={args.rounds},lr={args.lr},",
     )
 )
 

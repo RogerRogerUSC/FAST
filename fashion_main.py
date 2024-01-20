@@ -98,7 +98,9 @@ server = Server(model=CNN_FMNIST(), criterion=criterion, device=device)
 
 writer = SummaryWriter(
     os.path.join(
-        "output", "fashion", f"{args}+{datetime.now().strftime('%m-%d-%H-%M-%S')}"
+        "output",
+        "fashion",
+        f"{args.sampling_type},alpha={args.alpha},q={args.q},{args.algo},ada={args.adaptive},nc={args.num_clients},rounds={args.rounds},lr={args.lr},",
     )
 )
 
