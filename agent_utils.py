@@ -103,7 +103,6 @@ class Agent:
             g["lr"] *= gamma
 
     def train_k_step(self, k: int):
-        # print("local update training")
         self.model.train()
         for i in range(k):
             try:
@@ -113,10 +112,34 @@ class Agent:
                 self.reset_epoch()
                 return loss, acc
             inputs, targets = inputs.to(self.device), targets.to(self.device)
-            # self.optimizer.zero_grad()
             self.model.zero_grad()
             outputs = self.model(inputs)
             loss = self.criterion(outputs, targets)
+            loss.backward()
+            self.optimizer.step()
+            self.train_loss.update(loss.item())
+            self.train_accuracy.update(accuracy(outputs, targets).item())
+        return self.train_loss.avg, self.train_accuracy.avg
+    
+    def train_k_step_fedprox(self, k: int):
+        self.model.train()
+        mu = 2
+        global_model_parameters = self.model.parameters()
+        for i in range(k):
+            try:
+                batch_idx, (inputs, targets) = next(self.data_generator)
+            except StopIteration:
+                loss, acc = self.train_loss.avg, self.train_accuracy.avg
+                self.reset_epoch()
+                return loss, acc
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
+            self.model.zero_grad()
+            outputs = self.model(inputs)
+            loss = self.criterion(outputs, targets)
+            l2 = 0.0
+            for w, w0 in zip(self._model.parameters(), global_model_parameters):
+                l2 += torch.sum(torch.pow(w - w0, 2))
+            loss = loss + 0.5 * mu * l2
             loss.backward()
             self.optimizer.step()
             self.train_loss.update(loss.item())
@@ -139,6 +162,14 @@ def local_update_selected_clients(clients: list[Agent], server, local_update):
     train_loss_sum, train_acc_sum = 0, 0
     for client in clients:
         train_loss, train_acc = client.train_k_step(k=local_update)
+        train_loss_sum += train_loss
+        train_acc_sum += train_acc
+    return train_loss_sum / len(clients), train_acc_sum / len(clients)
+
+def local_update_selected_clients_fedprox(clients: list[Agent], server, local_update):
+    train_loss_sum, train_acc_sum = 0, 0
+    for client in clients:
+        train_loss, train_acc = client.train_k_step_fedprox(k=local_update)
         train_loss_sum += train_loss
         train_acc_sum += train_acc
     return train_loss_sum / len(clients), train_acc_sum / len(clients)
