@@ -117,15 +117,19 @@ writer = SummaryWriter(
 
 
 list_q = []
-q = 0
 v = 0
 delta = 0
 gamma = 7
+if args.adaptive == True:
+    q = 0
+else:
+    q = args.q
+
 with tqdm(total=args.rounds, desc=f"Training:") as t:
     for round in range(0, args.rounds):
         # Sample clients
         sampled_clients = client_sampling(
-            server.determine_sampling(args.q, args.sampling_type),
+            server.determine_sampling(q, args.sampling_type),
             clients,
             round=round,
         )

@@ -94,20 +94,24 @@ writer = SummaryWriter(
     os.path.join(
         "output",
         "shakespeare",
-        f"{args.sampling_type},alpha={args.alpha},q={args.q},{args.algo},ada={args.adaptive},nc={args.num_clients},rounds={args.rounds},lr={args.lr},"
+        f"{args.sampling_type},alpha={args.alpha},q={args.q},{args.algo},ada={args.adaptive},nc={args.num_clients},rounds={args.rounds},lr={args.lr},",
     )
 )
 
 
 list_q = []
-q = 0
 v = 0
 delta = 0
 gamma = 7
+if args.adaptive == True:
+    q = 0
+else:
+    q = args.q
+
 with tqdm(total=args.rounds, desc=f"Training:") as t:
     for round in range(0, args.rounds):
         sampled_clients = client_sampling(
-            server.determine_sampling(args.q, args.sampling_type), clients, round
+            server.determine_sampling(q, args.sampling_type), clients, round
         )
         [client.pull_model_from_server(server) for client in sampled_clients]
         if args.algo == "fedavg":

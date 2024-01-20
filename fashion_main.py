@@ -106,15 +106,19 @@ writer = SummaryWriter(
 
 
 list_q = []
-q = 0
 v = 0
 delta = 0
 gamma = 7
+if args.adaptive == True:
+    q = 0
+else:
+    q = args.q
+
 with tqdm(total=args.rounds, desc=f"Training:") as t:
     for round in range(0, args.rounds):
         # Sample clients
         sampled_clients = client_sampling(
-            server.determine_sampling(args.q, args.sampling_type), clients, round
+            server.determine_sampling(q, args.sampling_type), clients, round
         )
         [client.pull_model_from_server(server) for client in sampled_clients]
         # Select algorithm
@@ -140,6 +144,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             log(round, eval_acc)
         # Adaptive FAST
         if args.adaptive == True:
+            print(args.adaptive)
             v = train_acc
             delta = delta - v
             q = min(1, max(0, q + gamma * delta))
