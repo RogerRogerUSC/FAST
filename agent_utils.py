@@ -137,7 +137,7 @@ class Agent:
             outputs = self.model(inputs)
             loss = self.criterion(outputs, targets)
             l2 = 0.0
-            for w, w0 in zip(self._model.parameters(), global_model_parameters):
+            for w, w0 in zip(self.model.parameters(), global_model_parameters):
                 l2 += torch.sum(torch.pow(w - w0, 2))
             loss = loss + 0.5 * mu * l2
             loss.backward()
