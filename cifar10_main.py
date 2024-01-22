@@ -155,7 +155,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             log(round, eval_acc)
             print(args)
             # Adaptive FAST
-        if args.adaptive == True:
+        if args.adaptive:
             v = train_acc
             delta = delta - v
             q = min(1, max(0, q + gamma * delta))
@@ -176,7 +176,7 @@ print(f"Evaluation(final round): {eval_loss=:.3f} {eval_acc=:.3f}")
 writer.close()
 
 # save the figure of changing in q
-if args.adaptive == True:
+if args.adaptive:
     fields = ["Step", "Value"]
     with open(
         f"results/q/list_cifar10_q_{args.sampling_type},alpha={args.alpha},lambda={gamma}.csv",
