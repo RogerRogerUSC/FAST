@@ -1,6 +1,5 @@
 import os
 import csv
-from datetime import datetime
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -108,7 +107,7 @@ writer = SummaryWriter(
 list_q = []
 v = 0
 delta = 0
-gamma = 7
+gamma = 1
 if args.adaptive == True:
     q = 0
 else:
@@ -133,8 +132,6 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         server.avg_clients(sampled_clients)
         writer.add_scalar("Loss/train", train_loss, round)
         writer.add_scalar("Accuracy/train", train_acc, round)
-        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
-        t.update(1)
         # Evaluate once per 10 rounds
         if round % 10 == 0:
             eval_loss, eval_acc = server.eval(test_loader)
@@ -144,12 +141,13 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             log(round, eval_acc)
         # Adaptive FAST
         if args.adaptive == True:
-            print(args.adaptive)
             v = train_acc
             delta = delta - v
             q = min(1, max(0, q + gamma * delta))
             list_q.append({"Step": round, "Value": q})
             delta = v
+        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
+        t.update(1)
 
 print(f"Number of uniform participation rounds: {server.get_num_uni_participation()}")
 print(f"Number of arbitrary participation rounds: {server.get_num_arb_participation()}")

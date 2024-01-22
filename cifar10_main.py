@@ -110,8 +110,8 @@ server = Server(model=CNN_Cifar10_2(), criterion=nn.CrossEntropyLoss(), device=d
 writer = SummaryWriter(
     os.path.join(
         "output",
-        "cifar_test",
-        f"{args.sampling_type},alpha={args.alpha},q={args.q},{args.algo},ada={args.adaptive},nc={args.num_clients},rounds={args.rounds},lr={args.lr},",
+        "cifar10",
+        f"{args.sampling_type},alpha={args.alpha},q={args.q},{args.algo},ada={args.adaptive},nc={args.num_clients},rounds={args.rounds},lr={args.lr},{datetime}",
     )
 )
 
@@ -147,8 +147,6 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         # Evaluation and logging
         writer.add_scalar("Loss/train", train_loss, round)
         writer.add_scalar("Accuracy/train", train_acc, round)
-        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
-        t.update(1)
         if round % 10 == 0:
             eval_loss, eval_acc = server.eval(test_loader)
             writer.add_scalar("Loss/test", eval_loss, round)
@@ -163,6 +161,8 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             q = min(1, max(0, q + gamma * delta))
             list_q.append({"Step": round, "Value": q})
             delta = v
+        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
+        t.update(1)
 
 
 print(f"Number of uniform participation rounds: {server.get_num_uni_participation()}")

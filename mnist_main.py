@@ -1,6 +1,5 @@
 import os
 import csv
-from datetime import datetime
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -156,7 +155,8 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             q = min(1, max(0, q + gamma * delta))
             list_q.append({"Step": round, "Value": q})
             delta = v
-
+        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
+        t.update(1)
 
 print(f"Number of uniform participation rounds: {server.get_num_uni_participation()}")
 print(f"Number of arbitrary participation rounds: {server.get_num_arb_participation()}")

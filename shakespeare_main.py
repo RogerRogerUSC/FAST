@@ -1,12 +1,9 @@
 import os
 import csv
-from datetime import datetime
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
 from agent_utils import Agent, Server
 from tqdm import tqdm
 from client_sampling import client_sampling
@@ -76,7 +73,6 @@ for idx in range(args.num_clients):
         batch_size=args.train_batch_size,
         **kwargs,
     )
-    print("train dataloader")
     clients.append(
         Agent(
             model=model,
@@ -125,8 +121,6 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         server.avg_clients(sampled_clients)
         writer.add_scalar("Loss/train", train_loss, round)
         writer.add_scalar("Accuracy/train", train_acc, round)
-        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
-        t.update(1)
         # Evaluate once per 10 rounds
         if round % 10 == 0:
             eval_loss, eval_acc = server.eval(test_loader)
@@ -141,6 +135,8 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             q = min(1, max(0, q + gamma * delta))
             list_q.append({"Step": round, "Value": q})
             delta = v
+        t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
+        t.update(1)
 
 print(f"Number of uniform participation rounds: {server.get_num_uni_participation()}")
 print(f"Number of arbitrary participation rounds: {server.get_num_arb_participation()}")
