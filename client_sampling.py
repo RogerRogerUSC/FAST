@@ -10,7 +10,7 @@ def client_sampling(
     if sampling_type == "uniform":
         return uniform_client_sampling(clients)
     elif sampling_type == "gamma":
-        gamma_with_value = functools.partial(gamma_client_sampling, shape=5, scale=0.05)
+        gamma_with_value = functools.partial(gamma_client_sampling, shape=10, scale=0.01)
         return gamma_with_value(clients)
     elif sampling_type == "beta":
         beta_with_value = functools.partial(beta_client_sampling, alpha=1, beta=10)
