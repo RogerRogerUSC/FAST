@@ -11,7 +11,7 @@ from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
 from agent_utils import (
-    local_update_selected_clients,
+    local_update_selected_clients_fedavg,
     local_update_selected_clients_fedprox,
 )
 from config import get_parms
@@ -121,8 +121,8 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         )
         [client.pull_model_from_server(server) for client in sampled_clients]
         # Select algorithm
-        if args.algo == "fedavg":
-            train_loss, train_acc = local_update_selected_clients(
+        if args.algo in ["fedavg", "fedavgm"]:
+            train_loss, train_acc = local_update_selected_clients_fedavg(
                 clients=sampled_clients, server=server, local_update=args.local_update
             )
         elif args.algo == "fedprox":
@@ -140,7 +140,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             print(f"Evaluation(round {round}): {eval_loss=:.4f} {eval_acc=:.3f}")
             log(round, eval_acc)
         # Adaptive FAST
-        if args.adaptive:
+        if args.adaptive == 1:
             v = train_acc
             delta = delta - v
             q = min(1, max(0, q + gamma * delta))
@@ -160,7 +160,7 @@ print(f"Evaluation(final round): {eval_loss=:.4f} {eval_acc=:.3f}")
 writer.close()
 
 # save the figure of changing in q
-if args.adaptive:
+if args.adaptive == 1:
     fields = ["Step", "Value"]
     with open(
         f"results/q/list_fashion_q_{args.sampling_type},alpha={args.alpha},lambda={gamma}.csv",

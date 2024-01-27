@@ -9,7 +9,7 @@ from tqdm import tqdm
 from client_sampling import client_sampling
 from log import log
 from agent_utils import (
-    local_update_selected_clients,
+    local_update_selected_clients_fedavg,
     local_update_selected_clients_fedprox,
     DatasetSplit,
 )
@@ -111,7 +111,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
         )
         [client.pull_model_from_server(server) for client in sampled_clients]
         if args.algo == "fedavg":
-            train_loss, train_acc = local_update_selected_clients(
+            train_loss, train_acc = local_update_selected_clients_fedavg(
                 clients=sampled_clients, server=server, local_update=args.local_update
             )
         elif args.algo == "fedprox":
