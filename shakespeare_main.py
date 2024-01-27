@@ -14,7 +14,6 @@ from agent_utils import (
     DatasetSplit,
 )
 from config import get_parms
-from FedLab.datasets.pickle_dataset import PickleDataset
 from dataset import ShakeSpeare
 from models.lstm import CharLSTM
 
@@ -110,7 +109,7 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
             server.determine_sampling(q, args.sampling_type), clients, round
         )
         [client.pull_model_from_server(server) for client in sampled_clients]
-        if args.algo == "fedavg":
+        if args.algo in ["fedavg", "fedavgm"]:
             train_loss, train_acc = local_update_selected_clients_fedavg(
                 clients=sampled_clients, server=server, local_update=args.local_update
             )

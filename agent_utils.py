@@ -224,7 +224,6 @@ class Server:
             new_momentum = beta * self.momentum + delta
             self.flatten_params = get_flatten_model_param(self.model) - new_momentum
             set_flatten_model_back(self.model, self.flatten_params)
-            print("=====fedavgm=====")
 
     def eval(self, test_dataloader) -> tuple[float, float]:
         self.model.eval()
