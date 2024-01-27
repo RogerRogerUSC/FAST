@@ -2,7 +2,9 @@ import torch
 import numpy as np
 import random
 from torch.utils.data import Dataset
+from config import get_parms
 
+args = get_parms("utils").parse_args()
 
 def set_all_param_zero(model):
     with torch.no_grad():
@@ -102,7 +104,7 @@ class Agent:
         for g in self.optimizer.param_groups:
             g["lr"] *= gamma
 
-    def train_k_step(self, k: int):
+    def train_k_step_fedavg(self, k: int):
         self.model.train()
         for i in range(k):
             try:
@@ -146,6 +148,27 @@ class Agent:
             self.train_accuracy.update(accuracy(outputs, targets).item())
         return self.train_loss.avg, self.train_accuracy.avg
 
+    def train_k_step_fedavgm(self, k: int):
+        self.model.train()
+        beta = 0.9
+        for i in range(k):
+            try:
+                batch_idx, (inputs, targets) = next(self.data_generator)
+            except StopIteration:
+                loss, acc = self.train_loss.avg, self.train_accuracy.avg
+                self.reset_epoch()
+                return loss, acc
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
+            self.model.zero_grad()
+            outputs = self.model(inputs)
+            loss = self.criterion(outputs, targets)
+            loss.backward()
+            self.optimizer.step()
+            self.train_loss.update(loss.item())
+            self.train_accuracy.update(accuracy(outputs, targets).item())
+        return self.train_loss.avg, self.train_accuracy.avg
+
+
     def eval(self, test_dataloader) -> tuple[float, float]:
         self.model.eval()
         val_accuracy = Metric("val_accuracy")
@@ -158,10 +181,10 @@ class Agent:
         return val_loss.avg, val_accuracy.avg
 
 
-def local_update_selected_clients(clients: list[Agent], server, local_update):
+def local_update_selected_clients_fedavg(clients: list[Agent], server, local_update):
     train_loss_sum, train_acc_sum = 0, 0
     for client in clients:
-        train_loss, train_acc = client.train_k_step(k=local_update)
+        train_loss, train_acc = client.train_k_step_fedavg(k=local_update)
         train_loss_sum += train_loss
         train_acc_sum += train_acc
     return train_loss_sum / len(clients), train_acc_sum / len(clients)
@@ -182,13 +205,26 @@ class Server:
         self.device = device
         self.num_arb_participation = 0
         self.num_uni_participation = 0
+        self.momentum = self.flatten_params.clone().zero_()
 
     def avg_clients(self, clients: list[Agent]):
-        self.flatten_params.zero_()
-        for client in clients:
-            self.flatten_params += get_flatten_model_param(client.model).to(self.device)
-        self.flatten_params.div_(len(clients))
-        set_flatten_model_back(self.model, self.flatten_params)
+        if args.algo == "fedavg": 
+            self.flatten_params.zero_()
+            for client in clients:
+                self.flatten_params += get_flatten_model_param(client.model).to(self.device)
+            self.flatten_params.div_(len(clients))
+            set_flatten_model_back(self.model, self.flatten_params)
+        elif args.algo == "fedavgm": 
+            beta = 0.7
+            self.flatten_params.zero_()
+            for client in clients:
+                self.flatten_params += get_flatten_model_param(client.model).to(self.device)
+            self.flatten_params.div_(len(clients))
+            delta = get_flatten_model_param(self.model) - self.flatten_params
+            new_momentum = beta * self.momentum + delta
+            self.flatten_params = get_flatten_model_param(self.model) - new_momentum
+            set_flatten_model_back(self.model, self.flatten_params)
+            print("=====fedavgm=====")
 
     def eval(self, test_dataloader) -> tuple[float, float]:
         self.model.eval()
