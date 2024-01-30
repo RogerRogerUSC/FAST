@@ -112,7 +112,7 @@ list_q = []
 v = 0
 delta = 0
 gamma = 7
-if args.adaptive == True:
+if args.adaptive == 1:
     q = 0
 else:
     q = args.q

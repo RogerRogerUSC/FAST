@@ -107,8 +107,8 @@ writer = SummaryWriter(
 list_q = []
 v = 0
 delta = 0
-gamma = 1
-if args.adaptive == True:
+gamma = 7
+if args.adaptive == 1:
     q = 0
 else:
     q = args.q
