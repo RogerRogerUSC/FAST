@@ -26,13 +26,13 @@ torch.manual_seed(args.seed)
 
 if use_cuda:
     device = torch.device("cuda")
-    print("Using cuda. ")
+    print("------ Using cuda ------")
 elif use_mps:
     device = torch.device("mps")
-    print("Using mps. ")
+    print("------ Using mps ------")
 else:
     device = torch.device("cpu")
-    print("Using cpu. ")
+    print("------ Using cpu ------")
 
 
 kwargs = {"num_workers": args.num_workers, "pin_memory": True} if use_cuda else {}
