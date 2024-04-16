@@ -207,9 +207,12 @@ poetry.toml
 pyrightconfig.json
 
 # Data and output
+cifar10_plot.py
+cifar10_plot_2.py
 data/
-output/
-figures/
-results/
-test.py
+data_dist.py
+fashion_plot.py
+stats.py
+shakespeare_plot.py
+mnist_plot.py
 # End of https://www.toptal.com/developers/gitignore/api/python,macos
