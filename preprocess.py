@@ -37,7 +37,6 @@ def preprocess(args):
         test_loader = torch.utils.data.DataLoader(
             test_dataset,
             batch_size=args.test_batch_size,
-            **kwargs,
         )
     elif args.dataset == "fashion":
         transform = transforms.Compose(

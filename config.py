@@ -25,7 +25,7 @@ def get_parms(dataset):
     parser.add_argument("--adaptive", type=int, default=0)
     parser.add_argument("--num-workers", type=int, default=2)
     parser.add_argument(
-        "--compressor", type=str, default="topk", help="[topk,randk, quan]"
+        "--compressor", type=str, default=None, help="[topk,randk, quan]"
     )
     parser.add_argument(
         "--dataset",

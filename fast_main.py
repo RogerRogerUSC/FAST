@@ -96,6 +96,7 @@ for idx in range(args.num_clients):
             batch_size=args.train_batch_size,
             shuffle=True,
         )
+        server = Server(model=cnn.CNN_Cifar10_2(), criterion=criterion, device=device)
     elif args.dataset == "shakespeare":
         model = lstm.CharLSTM()
         criterion = nn.CrossEntropyLoss()
@@ -109,6 +110,7 @@ for idx in range(args.num_clients):
             DatasetSplit(train_dataset, dict_users[idx]),
             batch_size=args.train_batch_size,
         )
+        server = Server(model=lstm.CharLSTM(), criterion=criterion, device=device)
 
     clients.append(
         Agent(
@@ -122,12 +124,11 @@ for idx in range(args.num_clients):
     )
 
 
-# for fo-fedavg
 writer = SummaryWriter(
     os.path.join(
         "tensorboards",
         f"{args.dataset}",
-        f"{args.algo},local_update={args.local_update},nc={args.num_clients},rounds={args.rounds},lr={args.lr},seed={args.seed}",
+        f"{args.algo},local_update={args.local_update},nc={args.num_clients},rounds={args.round},lr={args.lr},seed={args.seed}",
     )
 )
 
@@ -140,9 +141,9 @@ if args.adaptive == 1:
 else:
     q = args.q
 
-
-with tqdm(total=args.rounds, desc=f"Training:") as t:
-    for round in range(0, args.rounds):
+print(args)
+with tqdm(total=args.round, desc=f"Training:") as t:
+    for round in range(0, args.round):
         # Sample clients
         sampled_clients = client_sampling(
             server.determine_sampling(q, args.sampling_type),
@@ -162,14 +163,15 @@ with tqdm(total=args.rounds, desc=f"Training:") as t:
 
         server.avg_clients(sampled_clients, weights=None)
         # Evaluation and logging
-        writer.add_scalar("Loss/train", train_loss, round)
-        writer.add_scalar("Accuracy/train", train_acc, round)
+        if args.log_to_tensorboard is not None:
+            writer.add_scalar("Loss/train", train_loss, round)
+            writer.add_scalar("Accuracy/train", train_acc, round)
         t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
-        t.update(1)
         if (round + 1) % args.eval_iterations == 0:
             eval_loss, eval_acc = server.eval(test_loader)
-            writer.add_scalar("Loss/test", eval_loss, round)
-            writer.add_scalar("Accuracy/test", eval_acc, round)
+            if args.log_to_tensorboard is not None:
+                writer.add_scalar("Loss/test", eval_loss, round)
+                writer.add_scalar("Accuracy/test", eval_acc, round)
             print(f"Evaluation(round {round}): {eval_loss=:.3f} {eval_acc=:.3f}")
             log(round, eval_acc)
         # Adaptive FAST
@@ -187,13 +189,14 @@ print(f"Number of arbitrary participation rounds: {server.get_num_arb_participat
 print(f"Ratio={server.get_num_arb_participation() / args.rounds}")
 
 eval_loss, eval_acc = server.eval(test_loader)
-writer.add_scalar("Loss/test", eval_loss, round)
-writer.add_scalar("Accuracy/test", eval_acc, round)
 print(f"Evaluation(final round): {eval_loss=:.3f} {eval_acc=:.3f}")
-writer.close()
+if args.log_to_tensorboard is not None:
+    writer.add_scalar("Loss/test", eval_loss, round)
+    writer.add_scalar("Accuracy/test", eval_acc, round)
+    writer.close()
 
 # save the figure of how q changes
-if args.adaptive == 1:
+if args.adaptive == 1 and args.log_to_tensorboard is not None:
     fields = ["Step", "Value"]
     with open(
         f"results/q/{args.dataset}_q_{args.sampling_type},alpha={args.alpha},lambda={args.gamma}.csv",
