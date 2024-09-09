@@ -124,13 +124,14 @@ for idx in range(args.num_clients):
     )
 
 
-writer = SummaryWriter(
-    os.path.join(
-        "tensorboards",
-        f"{args.dataset}",
-        f"{args.algo},local_update={args.local_update},nc={args.num_clients},rounds={args.round},lr={args.lr},seed={args.seed}",
+if args.log_to_tensorboard is not None:
+    writer = SummaryWriter(
+        os.path.join(
+            "tensorboards",
+            f"{args.dataset}",
+            f"{args.algo},local_update={args.local_update},nc={args.num_clients},rounds={args.round},lr={args.lr},seed={args.seed}",
+        )
     )
-)
 
 
 list_q = []

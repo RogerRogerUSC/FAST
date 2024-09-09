@@ -2,7 +2,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
-from client_sampling import client_sampling
+from shared.client_sampling import client_sampling
 
 sampling_type = "UGamma"
 allclients = []

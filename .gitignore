@@ -215,4 +215,7 @@ fashion_plot.py
 stats.py
 shakespeare_plot.py
 mnist_plot.py
+figures/
+output
+results
 # End of https://www.toptal.com/developers/gitignore/api/python,macos
