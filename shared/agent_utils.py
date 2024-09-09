@@ -3,6 +3,7 @@ import numpy as np
 import random
 from torch.utils.data import Dataset
 from config import get_parms
+from shared.compression import quantize, dequantize_tensor, top_k, random_k
 
 args = get_parms("utils").parse_args()
 
@@ -181,10 +182,28 @@ class Agent:
         return val_loss.avg, val_accuracy.avg
 
 
+def local_update_selected_clients_fedavg_afl(clients: list[Agent], server, local_update):
+    train_loss_sum, train_acc_sum = 0, 0
+    for client in clients: 
+        local_update_steps = random.randint(1, 10)
+        train_loss, train_acc = client.train_k_step_fedavg(k=local_update_steps)
+        train_loss_sum += train_loss
+        train_acc_sum += train_acc
+    return train_loss_sum / len(clients), train_acc_sum / len(clients)
+
 def local_update_selected_clients_fedavg(clients: list[Agent], server, local_update):
     train_loss_sum, train_acc_sum = 0, 0
-    for client in clients:
+    for client in clients: 
         train_loss, train_acc = client.train_k_step_fedavg(k=local_update)
+        train_loss_sum += train_loss
+        train_acc_sum += train_acc
+    return train_loss_sum / len(clients), train_acc_sum / len(clients)
+
+def local_update_selected_clients_fedprox_afl(clients: list[Agent], server, local_update):
+    train_loss_sum, train_acc_sum = 0, 0
+    for client in clients:
+        local_update_steps = random.randint(1, 10)
+        train_loss, train_acc = client.train_k_step_fedprox(k=local_update_steps)
         train_loss_sum += train_loss
         train_acc_sum += train_acc
     return train_loss_sum / len(clients), train_acc_sum / len(clients)
@@ -207,13 +226,46 @@ class Server:
         self.num_uni_participation = 0
         self.momentum = self.flatten_params.clone().zero_()
 
-    def avg_clients(self, clients: list[Agent]):
+    def avg_clients(self, clients: list[Agent], weights):
         if args.algo == "fedavg": 
             self.flatten_params.zero_()
             for client in clients:
                 self.flatten_params += get_flatten_model_param(client.model).to(self.device)
             self.flatten_params.div_(len(clients))
             set_flatten_model_back(self.model, self.flatten_params)
+        elif args.algo == "fedcom": 
+            self.flatten_params.zero_()
+            for client in clients: 
+                # option 1: without quantization
+                # self.flatten_params += get_flatten_model_param(client.model).to(self.device)
+                
+                # option 2: add quantization compression - fedcom
+                client_model, scale, zero_point = quantize(get_flatten_model_param(client.model))
+                client_model = dequantize_tensor(client_model, scale=scale, zero_point=zero_point)
+                self.flatten_params += client_model.to(self.device)
+                
+                # delta = get_flatten_model_param(client.model) - get_flatten_model_param(self.model)
+                # option 1: add top-k on delta
+                # delta = top_k(delta, int(0.1 * torch.numel(delta)))
+                # option 2: add quantization compression - fedcom
+                # delta, scale, zero_point = quantize(delta)
+                # delta = dequantize_tensor(delta, scale=scale, zero_point=zero_point)
+                
+                # self.flatten_params.add_(delta.to(self.device))
+            # self.flatten_params.div_(len(clients)).add_(get_flatten_model_param(self.model))
+            self.flatten_params.div_(len(clients))
+            set_flatten_model_back(self.model, self.flatten_params)
+        elif args.algo == "fedamplify": 
+            i = 0
+            sum = 0
+            self.flatten_params.zero_()
+            for client in clients:
+                self.flatten_params += weights[i] * get_flatten_model_param(client.model).to(self.device)
+                sum += weights[i] * get_flatten_model_param(client.model)
+                i += 1
+            self.flatten_params.div_(len(clients))
+            set_flatten_model_back(self.model, self.flatten_params)
+            return sum
         elif args.algo == "fedavgm": 
             beta = 0.7
             self.flatten_params.zero_()
