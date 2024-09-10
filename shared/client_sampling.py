@@ -5,14 +5,19 @@ import functools
 
 
 def client_sampling(
-    sampling_type: str, clients: list[Agent], round: int, weights=None, 
+    sampling_type: str,
+    clients: list[Agent],
+    round: int,
+    weights=None,
 ) -> list[Agent]:
     if sampling_type == "uniform":
         return uniform_client_sampling(clients)
-    elif sampling_type == "afl": 
+    elif sampling_type == "afl":
         return afl_client_sampling(clients)
     elif sampling_type == "gamma":
-        gamma_with_value = functools.partial(gamma_client_sampling, shape=10, scale=0.01)
+        gamma_with_value = functools.partial(
+            gamma_client_sampling, shape=10, scale=0.01
+        )
         return gamma_with_value(clients)
     elif sampling_type == "beta":
         beta_with_value = functools.partial(beta_client_sampling, alpha=1, beta=10)
@@ -35,13 +40,16 @@ def afl_client_sampling(clients: list[Agent]) -> list[Agent]:
     sampled_clients = random.sample(clients, num_to_draw)
     return sampled_clients
 
+
 def uniform_client_sampling(clients: list[Agent]) -> list[Agent]:
     # sampled_clients = random.sample(clients, int(len(clients) * 0.1))
     sampled_clients = random.sample(clients, int(len(clients) * 0.05))
     return sampled_clients
 
 
-def gamma_client_sampling(clients, shape, scale):
+def gamma_client_sampling(
+    clients: list[Agent], shape: float, scale: float
+) -> list[Agent]:
     gamma_sample_indices = []
     while len(gamma_sample_indices) < len(clients) * 0.1:
         idx = int(np.random.gamma(shape=shape, scale=scale, size=1) * len(clients))
@@ -51,7 +59,9 @@ def gamma_client_sampling(clients, shape, scale):
     return sampled_clients
 
 
-def beta_client_sampling(clients, alpha, beta):
+def beta_client_sampling(
+    clients: list[Agent], alpha: float, beta: float
+) -> list[Agent]:
     beta_sample_indices = []
     while len(beta_sample_indices) < len(clients) * 0.1:
         idx = int(np.random.beta(alpha, beta, size=1) * len(clients))
@@ -60,7 +70,10 @@ def beta_client_sampling(clients, alpha, beta):
     sampled_clients = [clients[i] for i in beta_sample_indices]
     return sampled_clients
 
-def beta_client_sampling_with_weights(clients, alpha, beta, weights):
+
+def beta_client_sampling_with_weights(
+    clients: list[Agent], alpha: float, beta: float, weights: list[float]
+) -> tuple[list[Agent], list[float]]:
     beta_sample_indices = []
     beta_sample_weights = []
     while len(beta_sample_indices) < len(clients) * 0.1:
@@ -72,7 +85,8 @@ def beta_client_sampling_with_weights(clients, alpha, beta, weights):
     sampled_weights = [weights[i] for i in beta_sample_weights]
     return sampled_clients, sampled_weights
 
-def cyclic_client_sampling(clients, round):
+
+def cyclic_client_sampling(clients: list[Agent], round: int) -> list[Agent]:
     num_groups = 4
     length_each_group = int(len(clients) / num_groups)
     start_index = int((round % num_groups) * length_each_group)
@@ -84,7 +98,7 @@ def cyclic_client_sampling(clients, round):
     return sampled_clients
 
 
-def circular_client_sampling(clients, round):
+def circular_client_sampling(clients: list[Agent], round: int) -> list[Agent]:
     num_groups = 10
     length_each_group = int(len(clients) / num_groups)
     start_index = int((round % num_groups) * length_each_group)
@@ -93,7 +107,7 @@ def circular_client_sampling(clients, round):
     return sampled_clients
 
 
-def weibull_client_sampling(clients, shape):
+def weibull_client_sampling(clients: list[Agent], shape: float) -> list[Agent]:
     weibull_sample_indices = []
     while len(weibull_sample_indices) < len(clients) * 0.1:
         idx = int(np.random.weibull(a=shape, size=1) / 1.2 * len(clients))
