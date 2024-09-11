@@ -9,10 +9,7 @@ from tqdm import tqdm
 from shared.client_sampling import client_sampling
 from shared.log import log
 from models import cnn, lstm
-from shared.agent_utils import (
-    local_update_selected_clients_fedavg,
-    local_update_selected_clients_fedprox,
-)
+from shared.agent_utils import local_update_selected_clients_fedavg
 from config import get_parms
 from fedlab.utils.dataset.partition import MNISTPartitioner, FMNISTPartitioner
 import preprocess
@@ -157,11 +154,6 @@ with tqdm(total=args.round, desc=f"Training:") as t:
             train_loss, train_acc = local_update_selected_clients_fedavg(
                 clients=sampled_clients, server=server, local_update=args.local_update
             )
-        elif args.algo == "fedprox":
-            train_loss, train_acc = local_update_selected_clients_fedprox(
-                clients=sampled_clients, server=server, local_update=args.local_update
-            )
-
         server.avg_clients(sampled_clients, weights=None)
         # Evaluation and logging
         if args.log_to_tensorboard is not None:

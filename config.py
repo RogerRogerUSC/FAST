@@ -12,6 +12,7 @@ def get_parms(dataset):
     parser.add_argument("--num-clients", type=int, default=100, help="Total clients")
     parser.add_argument("--round", type=int, default=1000, help="Communication rounds")
     parser.add_argument("--q", type=float, default=1, help="Probability of snapshot")
+    parser.add_argument("--f", type=int, default=50, help="The q in the GA algorithm")
     parser.add_argument(
         "--gamma", type=float, default=0.7, help="parameter for adaptive FAST"
     )

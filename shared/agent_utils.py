@@ -7,6 +7,18 @@ from shared.compression import quantize, dequantize_tensor, top_k, random_k
 
 args = get_parms("utils").parse_args()
 
+
+def generate_gaussian_matrix(d: int, f: int = args.f) -> torch.Tensor:
+    # Generate a d x f matrix where each entry is sampled from N(0, 1)
+    G = torch.randn(d, f)
+    return G
+
+
+def get_approx_optimal_weights(G, delta, f: int = args.f) -> torch.Tensor:
+    w = G.T @ delta / f
+    return w
+
+
 def set_all_param_zero(model):
     with torch.no_grad():
         for p in model.parameters():
@@ -33,7 +45,7 @@ def get_flatten_model_param(model):
         )
 
 
-def get_flatten_model_grad(model):
+def get_flatten_model_grad(model) -> torch.Tensor:
     with torch.no_grad():
         return torch.cat(
             [p.grad.detach().view(-1) for p in model.parameters() if p.requires_grad]
@@ -77,6 +89,11 @@ class Agent:
         self.batch_idx = 0
         self.epoch = 0
         self.data_generator = self.get_one_train_batch()
+        self.model_grad = torch.zeros_like(get_flatten_model_param(self.model))
+        self.G = torch.zeros_like(get_flatten_model_param(self.model)).to(self.device)
+
+    def pull_G(self, server):
+        self.G = server.G
 
     def get_one_train_batch(self):
         for batch_idx, (inputs, targets) in enumerate(self.train_loader):
@@ -107,6 +124,8 @@ class Agent:
 
     def train_k_step_fedavg(self, k: int):
         self.model.train()
+        # Initialize an empty gradient tensor
+        self.model_grad = torch.zeros_like(get_flatten_model_param(self.model))
         for i in range(k):
             try:
                 batch_idx, (inputs, targets) = next(self.data_generator)
@@ -119,56 +138,13 @@ class Agent:
             outputs = self.model(inputs)
             loss = self.criterion(outputs, targets)
             loss.backward()
-            self.optimizer.step()
-            self.train_loss.update(loss.item())
-            self.train_accuracy.update(accuracy(outputs, targets).item())
-        return self.train_loss.avg, self.train_accuracy.avg
-    
-    def train_k_step_fedprox(self, k: int):
-        self.model.train()
-        mu = 2
-        global_model_parameters = self.model.parameters()
-        for i in range(k):
-            try:
-                batch_idx, (inputs, targets) = next(self.data_generator)
-            except StopIteration:
-                loss, acc = self.train_loss.avg, self.train_accuracy.avg
-                self.reset_epoch()
-                return loss, acc
-            inputs, targets = inputs.to(self.device), targets.to(self.device)
-            self.model.zero_grad()
-            outputs = self.model(inputs)
-            loss = self.criterion(outputs, targets)
-            l2 = 0.0
-            for w, w0 in zip(self.model.parameters(), global_model_parameters):
-                l2 += torch.sum(torch.pow(w - w0, 2))
-            loss = loss + 0.5 * mu * l2
-            loss.backward()
-            self.optimizer.step()
-            self.train_loss.update(loss.item())
-            self.train_accuracy.update(accuracy(outputs, targets).item())
-        return self.train_loss.avg, self.train_accuracy.avg
+            # Get the gradient and add it to model_grad
+            self.model_grad += get_flatten_model_grad(self.model)
 
-    def train_k_step_fedavgm(self, k: int):
-        self.model.train()
-        beta = 0.9
-        for i in range(k):
-            try:
-                batch_idx, (inputs, targets) = next(self.data_generator)
-            except StopIteration:
-                loss, acc = self.train_loss.avg, self.train_accuracy.avg
-                self.reset_epoch()
-                return loss, acc
-            inputs, targets = inputs.to(self.device), targets.to(self.device)
-            self.model.zero_grad()
-            outputs = self.model(inputs)
-            loss = self.criterion(outputs, targets)
-            loss.backward()
             self.optimizer.step()
             self.train_loss.update(loss.item())
             self.train_accuracy.update(accuracy(outputs, targets).item())
         return self.train_loss.avg, self.train_accuracy.avg
-
 
     def eval(self, test_dataloader) -> tuple[float, float]:
         self.model.eval()
@@ -182,39 +158,14 @@ class Agent:
         return val_loss.avg, val_accuracy.avg
 
 
-def local_update_selected_clients_fedavg_afl(clients: list[Agent], server, local_update):
-    train_loss_sum, train_acc_sum = 0, 0
-    for client in clients: 
-        local_update_steps = random.randint(1, 10)
-        train_loss, train_acc = client.train_k_step_fedavg(k=local_update_steps)
-        train_loss_sum += train_loss
-        train_acc_sum += train_acc
-    return train_loss_sum / len(clients), train_acc_sum / len(clients)
-
 def local_update_selected_clients_fedavg(clients: list[Agent], server, local_update):
     train_loss_sum, train_acc_sum = 0, 0
-    for client in clients: 
+    for client in clients:
         train_loss, train_acc = client.train_k_step_fedavg(k=local_update)
         train_loss_sum += train_loss
         train_acc_sum += train_acc
     return train_loss_sum / len(clients), train_acc_sum / len(clients)
 
-def local_update_selected_clients_fedprox_afl(clients: list[Agent], server, local_update):
-    train_loss_sum, train_acc_sum = 0, 0
-    for client in clients:
-        local_update_steps = random.randint(1, 10)
-        train_loss, train_acc = client.train_k_step_fedprox(k=local_update_steps)
-        train_loss_sum += train_loss
-        train_acc_sum += train_acc
-    return train_loss_sum / len(clients), train_acc_sum / len(clients)
-
-def local_update_selected_clients_fedprox(clients: list[Agent], server, local_update):
-    train_loss_sum, train_acc_sum = 0, 0
-    for client in clients:
-        train_loss, train_acc = client.train_k_step_fedprox(k=local_update)
-        train_loss_sum += train_loss
-        train_acc_sum += train_acc
-    return train_loss_sum / len(clients), train_acc_sum / len(clients)
 
 class Server:
     def __init__(self, *, model, criterion, device):
@@ -225,57 +176,20 @@ class Server:
         self.num_arb_participation = 0
         self.num_uni_participation = 0
         self.momentum = self.flatten_params.clone().zero_()
+        self.G = generate_gaussian_matrix(
+            get_flatten_model_param(self.model).size(0)
+        ).to(device)
 
-    def avg_clients(self, clients: list[Agent], weights):
-        if args.algo == "fedavg": 
-            self.flatten_params.zero_()
+    def avg_clients(self, clients: list[Agent], weights=0):
+        if args.algo == "fedavg":
             for client in clients:
-                self.flatten_params += get_flatten_model_param(client.model).to(self.device)
-            self.flatten_params.div_(len(clients))
+                self.flatten_params -= self.G @ get_approx_optimal_weights(
+                    self.G, client.model_grad
+                ).to(self.device).mul_(args.lr / len(clients))
             set_flatten_model_back(self.model, self.flatten_params)
-        elif args.algo == "fedcom": 
-            self.flatten_params.zero_()
-            for client in clients: 
-                # option 1: without quantization
-                # self.flatten_params += get_flatten_model_param(client.model).to(self.device)
-                
-                # option 2: add quantization compression - fedcom
-                client_model, scale, zero_point = quantize(get_flatten_model_param(client.model))
-                client_model = dequantize_tensor(client_model, scale=scale, zero_point=zero_point)
-                self.flatten_params += client_model.to(self.device)
-                
-                # delta = get_flatten_model_param(client.model) - get_flatten_model_param(self.model)
-                # option 1: add top-k on delta
-                # delta = top_k(delta, int(0.1 * torch.numel(delta)))
-                # option 2: add quantization compression - fedcom
-                # delta, scale, zero_point = quantize(delta)
-                # delta = dequantize_tensor(delta, scale=scale, zero_point=zero_point)
-                
-                # self.flatten_params.add_(delta.to(self.device))
-            # self.flatten_params.div_(len(clients)).add_(get_flatten_model_param(self.model))
-            self.flatten_params.div_(len(clients))
-            set_flatten_model_back(self.model, self.flatten_params)
-        elif args.algo == "fedamplify": 
-            i = 0
-            sum = 0
-            self.flatten_params.zero_()
-            for client in clients:
-                self.flatten_params += weights[i] * get_flatten_model_param(client.model).to(self.device)
-                sum += weights[i] * get_flatten_model_param(client.model)
-                i += 1
-            self.flatten_params.div_(len(clients))
-            set_flatten_model_back(self.model, self.flatten_params)
-            return sum
-        elif args.algo == "fedavgm": 
-            beta = 0.7
-            self.flatten_params.zero_()
-            for client in clients:
-                self.flatten_params += get_flatten_model_param(client.model).to(self.device)
-            self.flatten_params.div_(len(clients))
-            delta = get_flatten_model_param(self.model) - self.flatten_params
-            new_momentum = beta * self.momentum + delta
-            self.flatten_params = get_flatten_model_param(self.model) - new_momentum
-            set_flatten_model_back(self.model, self.flatten_params)
+        self.G = generate_gaussian_matrix(
+            get_flatten_model_param(self.model).size(0)
+        ).to(self.device)
 
     def eval(self, test_dataloader) -> tuple[float, float]:
         self.model.eval()
@@ -293,19 +207,11 @@ class Server:
         if "_" in sampling_type:
             sampling_methods = sampling_type.split("_")
             if random.random() < q:
-                self.num_uni_participation += 1
                 return "uniform"
             else:
-                self.num_arb_participation += 1
                 return sampling_methods[1]
         else:
             return sampling_type
-
-    def get_num_uni_participation(self) -> int:
-        return self.num_uni_participation
-
-    def get_num_arb_participation(self) -> int:
-        return self.num_arb_participation
 
 
 class DatasetSplit(Dataset):
