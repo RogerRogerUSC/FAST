@@ -3,6 +3,8 @@ import random
 from shared.agent_utils import Agent
 import functools
 
+participation_ratio = 0.1  # the percentage of participating clients in each round
+
 
 def client_sampling(
     sampling_type: str,
@@ -42,7 +44,7 @@ def afl_client_sampling(clients: list[Agent]) -> list[Agent]:
 
 
 def uniform_client_sampling(clients: list[Agent]) -> list[Agent]:
-    sampled_clients = random.sample(clients, int(len(clients) * 0.1))
+    sampled_clients = random.sample(clients, int(len(clients) * participation_ratio))
     return sampled_clients
 
 
@@ -50,7 +52,7 @@ def gamma_client_sampling(
     clients: list[Agent], shape: float, scale: float
 ) -> list[Agent]:
     gamma_sample_indices = []
-    while len(gamma_sample_indices) < len(clients) * 0.1:
+    while len(gamma_sample_indices) < len(clients) * participation_ratio:
         idx = int(np.random.gamma(shape=shape, scale=scale, size=1) * len(clients))
         if (idx not in gamma_sample_indices) and (idx < len(clients)):
             gamma_sample_indices.append(idx)
@@ -62,7 +64,7 @@ def beta_client_sampling(
     clients: list[Agent], alpha: float, beta: float
 ) -> list[Agent]:
     beta_sample_indices = []
-    while len(beta_sample_indices) < len(clients) * 0.1:
+    while len(beta_sample_indices) < len(clients) * participation_ratio:
         idx = int(np.random.beta(alpha, beta, size=1) * len(clients))
         if idx not in beta_sample_indices:
             beta_sample_indices.append(idx)
@@ -75,7 +77,7 @@ def beta_client_sampling_with_weights(
 ) -> tuple[list[Agent], list[float]]:
     beta_sample_indices = []
     beta_sample_weights = []
-    while len(beta_sample_indices) < len(clients) * 0.1:
+    while len(beta_sample_indices) < len(clients) * participation_ratio:
         idx = int(np.random.beta(alpha, beta, size=1) * len(clients))
         if idx not in beta_sample_indices:
             beta_sample_indices.append(idx)
@@ -91,7 +93,7 @@ def cyclic_client_sampling(clients: list[Agent], round: int) -> list[Agent]:
     start_index = int((round % num_groups) * length_each_group)
     sampled_clients = np.random.choice(
         clients[start_index : start_index + length_each_group],
-        size=int(len(clients) * 0.1),
+        size=int(len(clients) * participation_ratio),
         replace=False,
     )
     return sampled_clients
@@ -108,7 +110,7 @@ def circular_client_sampling(clients: list[Agent], round: int) -> list[Agent]:
 
 def weibull_client_sampling(clients: list[Agent], shape: float) -> list[Agent]:
     weibull_sample_indices = []
-    while len(weibull_sample_indices) < len(clients) * 0.1:
+    while len(weibull_sample_indices) < len(clients) * participation_ratio:
         idx = int(np.random.weibull(a=shape, size=1) / 1.2 * len(clients))
         if (idx not in weibull_sample_indices) and (idx < len(clients)):
             weibull_sample_indices.append(idx)

@@ -5,7 +5,7 @@ import argparse
 def get_parms(dataset):
     parser = argparse.ArgumentParser(description="PyTorch" + str(dataset) + "trainning")
     parser.add_argument("--train-batch-size", type=int, default=128)
-    parser.add_argument("--test-batch-size", type=int, default=1000)
+    parser.add_argument("--test-batch-size", type=int, default=256)
     parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
     parser.add_argument("--sampling-type", type=str, default="uniform")
     parser.add_argument("--local-update", type=int, default=10, help="Local iterations")

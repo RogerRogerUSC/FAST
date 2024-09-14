@@ -126,7 +126,7 @@ if args.log_to_tensorboard is not None:
         os.path.join(
             "tensorboards",
             f"{args.dataset}",
-            f"{args.algo},local_update={args.local_update},nc={args.num_clients},rounds={args.round},lr={args.lr},seed={args.seed}",
+            f"{args.log_to_tensorboard},{args.algo},local_update={args.local_update},nc={args.num_clients},rounds={args.round},lr={args.lr},seed={args.seed}",
         )
     )
 
@@ -177,9 +177,6 @@ with tqdm(total=args.round, desc=f"Training:") as t:
         t.set_postfix({"loss": train_loss, "accuracy": 100.0 * train_acc})
         t.update(1)
 
-print(f"Number of uniform participation rounds: {server.get_num_uni_participation()}")
-print(f"Number of arbitrary participation rounds: {server.get_num_arb_participation()}")
-print(f"Ratio={server.get_num_arb_participation() / args.rounds}")
 
 eval_loss, eval_acc = server.eval(test_loader)
 print(f"Evaluation(final round): {eval_loss=:.3f} {eval_acc=:.3f}")
