@@ -22,13 +22,11 @@ class CNN_Mnist(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(2),
         )
-        # fully connected layer, output 10 classes
         self.out = nn.Linear(32 * 7 * 7, 10)
 
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
-        # flatten the output of conv2 to (batch_size, 32 * 7 * 7)
         x = x.view(x.size(0), -1)
         output = self.out(x)
         return output
@@ -161,19 +159,12 @@ class CNN_FMNIST(nn.Module):
         x = self.linear_2(x)
         return x
 
-class CNN_FEMNIST(nn.Module):
-    """Used for EMNIST experiments in references[1]
-    Args:
-        only_digits (bool, optional): If True, uses a final layer with 10 outputs, for use with the
-            digits only MNIST dataset (http://yann.lecun.com/exdb/mnist/).
-            If selfalse, uses 62 outputs for selfederated Extended MNIST (selfEMNIST)
-            EMNIST: Extending MNIST to handwritten letters: https://arxiv.org/abs/1702.05373
-            Defaluts to `True`
-    Returns:
-        A `torch.nn.Module`.
-    """
+
+    
+class CNN_FEMNIST_Quan(nn.Module):
+
     def __init__(self, only_digits=False):
-        super(CNN_FEMNIST, self).__init__()
+        super(CNN_FEMNIST_Quan, self).__init__()
         self.conv2d_1 = nn.Conv2d(1, 32, kernel_size=3)
         self.max_pooling = nn.MaxPool2d(2, stride=2)
         self.conv2d_2 = nn.Conv2d(32, 64, kernel_size=3)
@@ -196,6 +187,21 @@ class CNN_FEMNIST(nn.Module):
         x = self.linear_1(x)
         x = self.relu(x)
         x = self.dropout_2(x)
+        x = quantize_8bit(x)
         x = self.linear_2(x)
         # x = self.softmax(x)
         return x
+
+
+def quantize_8bit(tensor):
+    # Define quantization parameters for 4 bits (-8 to 7 range)
+    min_val, max_val = -128, 127
+    # min_val, max_val = -8, 7
+
+    # Scale tensor values to the range [min_val, max_val]
+    scale = (max_val - min_val) / (tensor.max() - tensor.min())
+    zero_point = min_val - tensor.min() * scale
+    quantized = torch.round(tensor * scale + zero_point)
+    quantized = torch.clamp(quantized, min=min_val, max=max_val)
+    dequantized = (quantized - zero_point) / scale
+    return dequantized

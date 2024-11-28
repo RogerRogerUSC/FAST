@@ -1,9 +1,10 @@
 import torch
 import numpy as np
 import random
+import copy
 from torch.utils.data import Dataset
 from config import get_parms
-from shared.compression import quantize, dequantize_tensor, top_k, random_k
+from shared.compression import quantize, dequantize_tensor, top_k
 
 args = get_parms("utils").parse_args()
 
@@ -90,7 +91,6 @@ class Agent:
         self.train_accuracy = Metric("train_accuracy")
 
     def pull_model_from_server(self, server):
-        # print("pull_model_from_server")
         if self.device != "cpu":
             # Notice the device between server and client may be different.
             with torch.device(self.device):
@@ -104,7 +104,8 @@ class Agent:
     def decay_lr_in_optimizer(self, gamma: float):
         for g in self.optimizer.param_groups:
             g["lr"] *= gamma
-
+    
+    # FedAvg at clients
     def train_k_step_fedavg(self, k: int):
         self.model.train()
         for i in range(k):
@@ -124,8 +125,10 @@ class Agent:
             self.train_accuracy.update(accuracy(outputs, targets).item())
         return self.train_loss.avg, self.train_accuracy.avg
     
+    # FedProx at clients
     def train_k_step_fedprox(self, k: int):
         self.model.train()
+        min_loss = 5.0
         mu = 2
         global_model_parameters = self.model.parameters()
         for i in range(k):
@@ -139,34 +142,18 @@ class Agent:
             self.model.zero_grad()
             outputs = self.model(inputs)
             loss = self.criterion(outputs, targets)
-            l2 = 0.0
+            proximal_term = 0.0
             for w, w0 in zip(self.model.parameters(), global_model_parameters):
-                l2 += torch.sum(torch.pow(w - w0, 2))
-            loss = loss + 0.5 * mu * l2
+                proximal_term += (w - w0).norm(2)
+            l = float(loss.item() + 0.5 * mu * proximal_term)
             loss.backward()
             self.optimizer.step()
             self.train_loss.update(loss.item())
             self.train_accuracy.update(accuracy(outputs, targets).item())
-        return self.train_loss.avg, self.train_accuracy.avg
-
-    def train_k_step_fedavgm(self, k: int):
-        self.model.train()
-        beta = 0.9
-        for i in range(k):
-            try:
-                batch_idx, (inputs, targets) = next(self.data_generator)
-            except StopIteration:
-                loss, acc = self.train_loss.avg, self.train_accuracy.avg
-                self.reset_epoch()
-                return loss, acc
-            inputs, targets = inputs.to(self.device), targets.to(self.device)
-            self.model.zero_grad()
-            outputs = self.model(inputs)
-            loss = self.criterion(outputs, targets)
-            loss.backward()
-            self.optimizer.step()
-            self.train_loss.update(loss.item())
-            self.train_accuracy.update(accuracy(outputs, targets).item())
+            if l < min_loss: 
+                min_loss = l
+                best_model = copy.deepcopy(self.model)
+        self.model.load_state_dict(best_model.state_dict())
         return self.train_loss.avg, self.train_accuracy.avg
 
 
@@ -227,7 +214,7 @@ class Server:
         self.momentum = self.flatten_params.clone().zero_()
 
     def avg_clients(self, clients: list[Agent], weights):
-        if args.algo == "fedavg": 
+        if args.algo in ["fedavg", "fedprox"]: 
             self.flatten_params.zero_()
             for client in clients:
                 self.flatten_params += get_flatten_model_param(client.model).to(self.device)
@@ -235,24 +222,18 @@ class Server:
             set_flatten_model_back(self.model, self.flatten_params)
         elif args.algo == "fedcom": 
             self.flatten_params.zero_()
-            for client in clients: 
-                # option 1: without quantization
-                # self.flatten_params += get_flatten_model_param(client.model).to(self.device)
-                
-                # option 2: add quantization compression - fedcom
-                client_model, scale, zero_point = quantize(get_flatten_model_param(client.model))
-                client_model = dequantize_tensor(client_model, scale=scale, zero_point=zero_point)
-                self.flatten_params += client_model.to(self.device)
-                
-                # delta = get_flatten_model_param(client.model) - get_flatten_model_param(self.model)
-                # option 1: add top-k on delta
-                # delta = top_k(delta, int(0.1 * torch.numel(delta)))
-                # option 2: add quantization compression - fedcom
-                # delta, scale, zero_point = quantize(delta)
-                # delta = dequantize_tensor(delta, scale=scale, zero_point=zero_point)
-                
-                # self.flatten_params.add_(delta.to(self.device))
-            # self.flatten_params.div_(len(clients)).add_(get_flatten_model_param(self.model))
+            if args.compressor == "topk": 
+                for client in clients: 
+                    delta = get_flatten_model_param(client.model)
+                    delta = top_k(delta, int(0.05 * torch.numel(delta)))
+                    self.flatten_params.add_(delta.to(self.device))
+            elif args.compressor == "quan": 
+                for client in clients: 
+                    delta, scale, zero_point = quantize(delta)
+                    delta = dequantize_tensor(delta, scale=scale, zero_point=zero_point)
+                    delta = dequantize_tensor(delta, scale=scale, zero_point=zero_point)
+                    self.flatten_params.add_(delta.to(self.device))
+                    
             self.flatten_params.div_(len(clients))
             set_flatten_model_back(self.model, self.flatten_params)
         elif args.algo == "fedamplify": 
@@ -276,6 +257,7 @@ class Server:
             new_momentum = beta * self.momentum + delta
             self.flatten_params = get_flatten_model_param(self.model) - new_momentum
             set_flatten_model_back(self.model, self.flatten_params)
+
 
     def eval(self, test_dataloader) -> tuple[float, float]:
         self.model.eval()

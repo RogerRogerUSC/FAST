@@ -127,9 +127,9 @@ for idx in range(args.num_clients):
 if args.log_to_tensorboard is not None:
     writer = SummaryWriter(
         os.path.join(
-            "tensorboards",
-            f"{args.dataset}",
-            f"{args.algo},local_update={args.local_update},nc={args.num_clients},rounds={args.round},lr={args.lr},seed={args.seed}",
+            "algo",
+            "different_lf_lu=10",
+            f"{args.log_to_tensorboard}",
         )
     )
 
@@ -153,7 +153,7 @@ with tqdm(total=args.round, desc=f"Training:") as t:
         )
         # Training
         [client.pull_model_from_server(server) for client in sampled_clients]
-        if args.algo in ["fedavg", "fedavgm"]:
+        if args.algo in ["fedavg", "fedcom", "fedavgm"]:
             train_loss, train_acc = local_update_selected_clients_fedavg(
                 clients=sampled_clients, server=server, local_update=args.local_update
             )

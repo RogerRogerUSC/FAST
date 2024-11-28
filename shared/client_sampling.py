@@ -42,8 +42,7 @@ def afl_client_sampling(clients: list[Agent]) -> list[Agent]:
 
 
 def uniform_client_sampling(clients: list[Agent]) -> list[Agent]:
-    # sampled_clients = random.sample(clients, int(len(clients) * 0.1))
-    sampled_clients = random.sample(clients, int(len(clients) * 0.05))
+    sampled_clients = random.sample(clients, int(len(clients) * 0.1))
     return sampled_clients
 
 
