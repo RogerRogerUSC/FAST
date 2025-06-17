@@ -23,7 +23,7 @@ FAST is a framework that can integrate almost all first-order Federated Learning
 
 
 ## Contributors
-This framework has been finished and maintained by **Zhe Li**(RIT), who was at the University of Southern California, **Bicheng Ying**(Google), and advised by Prof. **Haibo Yang**(RIT). 
+This framework has been finished and maintained by **Zhe Li**(RIT), who was at the University of Southern California, **Bicheng Ying**(Google), and advised by Dr. **Haibo Yang**(RIT). 
 
 <div style="display: flex; justify-content: space-between;">
     <img src="https://github.com/user-attachments/assets/b3982917-e302-42c3-b396-e33bb9f52c90" alt="Image 1" style="width: 80%;" />
