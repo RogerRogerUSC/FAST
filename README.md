@@ -19,10 +19,6 @@ FAST is a framework that can integrate almost all first-order Federated Learning
 |local-update|The number of local update steps in FL.|
 
 
-
-## Performance
-
-
 ## Citation
 
 
